@@ -68,6 +68,39 @@
 #'    Removes a creator by ORCID. Returns \code{TRUE} if some creator was removed, 
 #'    \code{FALSE} otherwise.
 #'  }
+#'  \item{\code{removeCreatorByGND(gnd)}}{
+#'    Removes a creator by GND. Returns \code{TRUE} if some creator was removed, 
+#'    \code{FALSE} otherwise.
+#'  }
+#'  \item{\code{addContributor(firsname, lastname, type, affiliation, orcid, gnd)}}{
+#'    Add a contributor for the record. Firstname, lastname, and type are mandatory.
+#'    The type should be an object of class \code{character} among values: ContactPerson, 
+#'    DataCollector, DataCurator, DataManager, Distributor, Editor, Funder, HostingInstitution, 
+#'    Producer, ProjectLeader, ProjectManager, ProjectMember, RegistrationAgency, RegistrationAuthority,
+#'    RelatedPerson, Researcher, ResearchGroup, RightsHolder, Supervisor, Sponsor, WorkPackageLeader, Other. 
+#'  }
+#'  \item{\code{removeContributor(by,property)}}{
+#'    Removes a contributor by a property. The \code{by} parameter should be the name
+#'    of the contributor property ('name' - in the form 'lastname, firstname', 'affiliation',
+#'    'orcid' or 'gnd'). Returns \code{TRUE} if some contributor was removed, 
+#'    \code{FALSE} otherwise.
+#'  }
+#'  \item{\code{removeContributorByName(name)}}{
+#'    Removes a contributor by name. Returns \code{TRUE} if some contributor was removed, 
+#'    \code{FALSE} otherwise.
+#'  }
+#'  \item{\code{removeContributorByAffiliation(affiliation)}}{
+#'    Removes a contributor by affiliation. Returns \code{TRUE} if some contributor was removed, 
+#'    \code{FALSE} otherwise.
+#'  }
+#'  \item{\code{removeContributorByORCID(orcid)}}{
+#'    Removes a contributor by ORCID. Returns \code{TRUE} if some contributor was removed, 
+#'    \code{FALSE} otherwise.
+#'  }
+#'  \item{\code{removeContributorByGND(gnd)}}{
+#'    Removes a contributor by GND. Returns \code{TRUE} if some contributor was removed, 
+#'    \code{FALSE} otherwise.
+#'  }
 #'  \item{\code{setLicense(licenseId)}}{
 #'    Set license. The license should be set with the Zenodo id of the license. If not
 #'    recognized by Zenodo, the function will return an error. The list of licenses can
@@ -76,6 +109,20 @@
 #'  \item{\code{setDOI(doi)}}{
 #'    Set the DOI. This method can be used if a DOI has been already assigned outside Zenodo.
 #'    This method will call the method \code{$prereserveDOI(FALSE)}.
+#'  }
+#'  \item{\code{getConceptDOI()}}{
+#'    Get the concept (generic) DOI. The concept DOI is a generic DOI common to all versions
+#'    of a Zenodo record. When a deposit is unsubmitted, this concept DOI is inherited based
+#'    on the prereserved DOI of the first record version.
+#'  }
+#'  \item{\code{getFirstDOI()}}{
+#'    Get DOI of the first record version.
+#'  }
+#'  \item{\code{getLastDOI()}}{
+#'    Get DOI of the latest record version.
+#'  }
+#'  \item{\code{getVersions()}}{
+#'    Get a \code{data.frame} listing record versions with publication date and DOI.
 #'  }
 #'  \item{\code{setVersion(version)}}{
 #'    Set the version.
@@ -91,6 +138,17 @@
 #'  }
 #'  \item{code{removeRelatedIdentifier(relation, identifier)}}{
 #'    Remove a related identifier
+#'  }
+#'  \item{\code{setReferences(references)}}{
+#'    Set a vector of character strings as references
+#'  }
+#'  \item{\code{addReference(reference)}}{
+#'    Adds a reference to the record metadata. Return \code{TRUE} if added, 
+#'    \code{FALSE} otherwise.
+#'  }
+#'  \item{\code{removedReference(reference)}}{
+#'    Removes a reference from the record metadata. Return \code{TRUE} if removed, 
+#'    \code{FALSE} otherwise.
 #'  }
 #'  \item{\code{setKeywords(keywords)}}{
 #'    Set a vector of character strings as keywords
@@ -134,6 +192,133 @@
 #'  \item{\code{removedCommunity(community)}}{
 #'    Removes a community from the record metadata. Return \code{TRUE} if removed, 
 #'    \code{FALSE} otherwise.
+#'  }
+#'  \item{\code{setGrants(grants)}}{
+#'    Set a vector of character strings identifying grants
+#'  }
+#'  \item{\code{addGrant(grant)}}{
+#'    Adds a grant to the record metadata. Return \code{TRUE} if added, 
+#'    \code{FALSE} otherwise. The grant should be set with the id of the grant. If not
+#'    recognized by Zenodo, the function will return an warning only. The list of grants can
+#'    fetched with the \code{ZenodoManager} and the function \code{$getGrants()}.
+#'  }
+#'  \item{\code{removeGrant(grant)}}{
+#'    Removes a grant from the record metadata. Return \code{TRUE} if removed, 
+#'    \code{FALSE} otherwise.
+#'  }
+#'  \item{\code{setJournalTitle(title)}}{
+#'    Set Journal title, object of class \code{\link{character}}, if deposition is a published article.
+#'  }
+#'  \item{\code{setJournalVolume(volume)}}{
+#'    Set Journal volume, object of class \code{\link{character}}, if deposition is a published article.
+#'  }
+#'  \item{\code{setJournalIssue(issue)}}{
+#'    Set Journal issue, object of class \code{\link{character}}, if deposition is a published article.
+#'  }
+#'  \item{\code{setJournalPages(pages)}}{
+#'    Set Journal pages, object of class \code{\link{character}}, if deposition is a published article.
+#'  }
+#'  \item{\code{setConferenceTitle(title)}}{
+#'   Set Conference title, object of class \code{\link{character}}.
+#'  }
+#'  \item{\code{setConferenceAcronym(acronym)}}{
+#'    Set conference acronym, object of class \code{\link{character}}.
+#'  }
+#'  \item{\code{setConferenceDates(dates)}}{
+#'    Set conference dates, object of class \code{\link{character}}.
+#'  }
+#'  \item{\code{setConferencePlace(place)}}{
+#'    Set conference place, object of class \code{\link{character}}, in the format city, country 
+#'    (e.g. Kingston, Jamaica). Conference title or acronym must also be specified if this field 
+#'    is specified.
+#'  }
+#'  \item{\code{setConferenceUrl(url)}}{
+#'    Set conference url, object of class \code{\link{character}}.
+#'  }
+#'  \item{\code{setConferenceSession(session)}}{
+#'    Set conference session, object of class \code{\link{character}}.
+#'  }
+#'  \item{\code{setConferenceSessionPart(part)}}{
+#'    Set conference session part, object of class \code{\link{character}}.
+#'  }
+#'  \item{\code{setImprintPublisher(publisher)}}{
+#'    Set imprint publisher, object of class \code{\link{character}}.
+#'  }
+#'  \item{\code{setImprintISBN(isbn)}}{
+#'    Set imprint ISBN, object of class \code{\link{character}}.
+#'  }
+#'  \item{\code{setImprintPlace(place)}}{
+#'    Set imprint place, object of class \code{\link{character}}.
+#'  }
+#'  \item{\code{setPartofTitle(title)}}{
+#'    Set the book title in case of a chapter, object of class \code{\link{character}}.
+#'  }
+#'  \item{\code{setPartofPages(pages)}}{
+#'    Set the page numbers of book, object of class \code{\link{character}}.
+#'  }
+#'  \item{\code{setThesisUniversity(university)}}{
+#'    Set the thesis university, object of class \code{\link{character}}
+#'  }
+#'  \item{\code{addThesisSupervisor(firsname, lastname, affiliation, orcid, gnd)}}{
+#'    Add a thesis supervisor for the record.
+#'  }
+#'  \item{\code{removeThesisSupervisor(by,property)}}{
+#'    Removes a thesi supervisor by a property. The \code{by} parameter should be the name
+#'    of the thesis supervisor property ('name' - in the form 'lastname, firstname', 'affiliation',
+#'    'orcid' or 'gnd'). Returns \code{TRUE} if some thesis supervisor was removed, 
+#'    \code{FALSE} otherwise.
+#'  }
+#'  \item{\code{removeThesisSupervisorByName(name)}}{
+#'    Removes a thesis supervisor by name. Returns \code{TRUE} if some thesis supervisor was removed, 
+#'    \code{FALSE} otherwise.
+#'  }
+#'  \item{\code{removeThesisSupervisorByAffiliation(affiliation)}}{
+#'    Removes a thesis supervisor by affiliation. Returns \code{TRUE} if some thesis supervisor was removed, 
+#'    \code{FALSE} otherwise.
+#'  }
+#'  \item{\code{removeThesisSupervisorByORCID(orcid)}}{
+#'    Removes a thesis supervisor by ORCID. Returns \code{TRUE} if some thesis supervisor was removed, 
+#'    \code{FALSE} otherwise.
+#'  }
+#'  \item{\code{removeThesisSupervisorByGND(gnd)}}{
+#'    Removes a thesis supervisor by GND. Returns \code{TRUE} if some thesis supervisor was removed, 
+#'    \code{FALSE} otherwise.
+#'  }
+#'  \item{\code{exportAs(format, filename)}}{
+#'    Export metadata in a format supported by Zenodo. Supported formats are: BibTeX, CSL, DataCite, 
+#'    DublinCore, DCAT, JSON, JSON-LD, GeoJSON, MARCXML. The exported will be named with the specified
+#'    filename followed by the format name.
+#'  }
+#'  \item{\code{exportAsBibTeX(filename)}}{
+#'    Export metadata as BibTeX (BIB) file
+#'  }
+#'  \item{\code{exportAsCSL(filename)}}{
+#'    Export metadata as CSL (JSON) file
+#'  }
+#'  \item{\code{exportAsDataCite(filename)}}{
+#'    Export metadata as DataCite (XML) file
+#'  }
+#'  \item{\code{exportAsDublinCore(filename)}}{
+#'    Export metadata as Dublin Core file
+#'  }
+#'  \item{\code{exportAsDCAT(filename)}}{
+#'    Export metadata as DCAT (RDF) file
+#'  }
+#'  \item{\code{exportAsJSON(filename)}}{
+#'    Export metadata as JSON file
+#'  }
+#'  \item{\code{exportAsJSONLD(filename)}}{
+#'    Export metadata as JSON-LD (JSON) file
+#'  }
+#'  \item{\code{exportAsGeoJSON(filename)}}{
+#'    Export metadata as GeoJSON (JSON) file
+#'  }
+#'  \item{\code{exportAsMARCXML{filename}}}{
+#'    Export metadata as MARCXML (XML) file
+#'  }
+#'  \item{\code{exportAsAllFormats(filename)}}{
+#'    Export metadata as all Zenodo supported metadata formats. THis function will
+#'    create one file per Zenodo metadata formats.
 #'  }
 #' }
 #' 
@@ -197,10 +382,61 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       self$prereserveDOI(FALSE)
     },
     
+    #getConceptDOI
+    getConceptDOI = function(){
+      conceptdoi <- self$conceptdoi
+      if(is.null(conceptdoi)){
+        doi <- self$metadata$prereserve_doi
+        if(!is.null(doi)) {
+          doi_parts <- unlist(strsplit(doi$doi, "zenodo."))
+          conceptdoi <- paste0(doi_parts[1], "zenodo.", as.integer(doi_parts[2])-1)
+        }
+      }
+      return(conceptdoi)
+    },
+    
+    #getFirstDOI
+    getFirstDOI = function(){
+      versions <- self$getVersions()
+      return(versions[1,"doi"])
+    },
+    
+    #getLastDOI
+    getLastDOI = function(){
+      versions <- self$getVersions()
+      return(versions[nrow(versions),"doi"])
+    },
+    
+    #getVersions
+    getVersions = function(){
+      locale <- Sys.getlocale("LC_TIME")
+      Sys.setlocale("LC_TIME", "us_US")
+      html <- xml2::read_html(self$links$latest_html)
+      html_versions <- html_nodes(html, "table")[3]
+      versions <- data.frame(
+        date = as.Date(sapply(html_nodes(html_versions, "tr"), function(x){
+          html_date <- html_text(html_nodes(x, "small")[2])
+          date <- as.Date(strptime(html_date, format="%b %d, %Y"))
+          return(date)
+        }), origin = "1970-01-01"),
+        version = sapply(html_nodes(html_versions, "tr"), function(x){
+          v <- html_text(html_nodes(x, "a")[1])
+          v <- substr(v, 9, nchar(v)-1)
+          return(v)
+        }),
+        doi = sapply(html_nodes(html_versions, "tr"), function(x){html_text(html_nodes(x, "small")[1])}),
+        stringsAsFactors = FALSE
+      )
+      versions <- versions[rev(row.names(versions)),]
+      row.names(versions) <- 1:nrow(versions)
+      Sys.setlocale("LC_TIME", locale)
+      return(versions)
+    },
+    
     #setUploadType
     setUploadType = function(uploadType){
       uploadTypeValues <- c("publication","poster","presentation",
-                            "dataset","image","video","software")
+                            "dataset","image","video","software","other")
       if(!(uploadType %in% uploadTypeValues)){
         errorMsg <- sprintf("The upload type should be among the values [%s]",
                             paste(uploadTypeValues, collapse=","))
@@ -283,9 +519,9 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     },
     
     #addCreator
-    addCreator = function(firstname, lastname, affiliation, orcid = NULL, gnd = NULL){
-      creator <- list(name = paste(lastname, firstname, sep=", "),
-                      affiliation = affiliation)
+    addCreator = function(firstname, lastname, affiliation = NULL, orcid = NULL, gnd = NULL){
+      creator <- list(name = paste(lastname, firstname, sep=", "))
+      if(!is.null(affiliation)) creator <- c(creator, affiliation = affiliation)
       if(!is.null(orcid)) creator <- c(creator, orcid = orcid)
       if(!is.null(gnd)) creator <- c(creator, gnd = gnd)
       if(is.null(self$metadata$creators)) self$metadata$creators <- list()
@@ -307,7 +543,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     
     #removeCreatorByName
     removeCreatorByName = function(name){
-      return(self$removeCreator(by = "Name", name))
+      return(self$removeCreator(by = "name", name))
     },
 
     #removeCreatorByAffiliation
@@ -318,6 +554,62 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #removeCreatorByORCID
     removeCreatorByORCID = function(orcid){
       return(self$removeCreator(by = "orcid", orcid))
+    },
+    
+    #removeCreatorByGND
+    removeCreatorByGND = function(gnd){
+      return(self$removeCreator(by = "gnd", gnd))
+    },
+    
+    #addContributor
+    addContributor = function(firstname, lastname, type, affiliation = NULL, orcid = NULL, gnd = NULL){
+      allowedTypes <- c("ContactPerson", "DataCollector", "DataCurator", "DataManager","Distributor",
+                        "Editor", "Funder", "HostingInstitution", "Producer", "ProjectLeader", "ProjectManager",
+                        "ProjectMember", "RegistrationAgency", "RegistrationAuthority", "RelatedPerson",
+                        "Researcher", "ResearchGroup", "RightsHolder","Supervisor", "Sponsor", "WorkPackageLeader", "Other")
+      if(!(type %in% allowedTypes)){
+        stop(sprintf("The contributor type should be one value among values [%s]",
+                      paste(allowedTypes, collapse=",")))
+      }
+      contributor <- list(name = paste(lastname, firstname, sep=", "), type = type)
+      if(!is.null(affiliation)) contributor <- c(contributor, affiliation = affiliation)
+      if(!is.null(orcid)) contributor <- c(contributor, orcid = orcid)
+      if(!is.null(gnd)) contributor <- c(contributor, gnd = gnd)
+      if(is.null(self$metadata$contributors)) self$metadata$contributors <- list()
+      self$metadata$contributors[[length(self$metadata$contributors)+1]] <- contributor
+    },
+    
+    #removeContributor
+    removeContributor = function(by,property){
+      removed <- FALSE
+      for(i in 1:length(self$metadata$contributors)){
+        contributor <- self$metadata$contributors[[i]]
+        if(contributor[[by]]==property){
+          self$metadata$contributors[[i]] <- NULL
+          removed <- TRUE 
+        }
+      }
+      return(removed)
+    },
+    
+    #removeContributorByName
+    removeContributorByName = function(name){
+      return(self$removeContributor(by = "name", name))
+    },
+    
+    #removeContributorByAffiliation
+    removeContributorByAffiliation = function(affiliation){
+      return(self$removeContributor(by = "affiliation", affiliation))
+    },
+    
+    #removeContributorByORCID
+    removeContributorByORCID = function(orcid){
+      return(self$removeContributor(by = "orcid", orcid))
+    },
+    
+    #removeContributorByGND
+    removeContributorByGND = function(gnd){
+      return(self$removeContributor(by = "gnd", gnd))
     },
     
     #setLicense
@@ -381,6 +673,41 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
           related_id <- self$metadata$related_identifiers[[i]]
           if(related_id$relation == relation & related_id$identifier == identifier){
             self$metadata$related_identifiers[[i]] <- NULL
+            removed <- TRUE
+            break;
+          }
+        }
+      }
+      return(removed)
+    },
+    
+    #setReferences
+    setReferences = function(references){
+      if(is.null(self$metadata$references)) self$metadata$references <- list()
+      for(reference in references){
+        self$addReference(reference)
+      }
+    },
+    
+    #addReference
+    addReference = function(reference){
+      added <- FALSE
+      if(is.null(self$metadata$references)) self$metadata$references <- list()
+      if(!(reference %in% self$metadata$references)){
+        self$metadata$references[[length(self$metadata$references)+1]] <- reference
+        added <- TRUE
+      }
+      return(added)
+    },
+    
+    #removeReference
+    removeReference = function(reference){
+      removed <- FALSE
+      if(!is.null(self$metadata$references)){
+        for(i in 1:length(self$metadata$references)){
+          ref <- self$metadata$references[[i]]
+          if(ref == reference){
+            self$metadata$references[[i]] <- NULL
             removed <- TRUE
             break;
           }
@@ -474,7 +801,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       if(is.null(self$metadata$communities)) self$metadata$communities <- list()
       if(!(community %in% self$metadata$communities)){
         zen_community <- zen$getCommunityById(community)
-        if(!is.null(zen_community$status)){
+        if(is.null(zen_community)){
           errorMsg <- sprintf("Community with id '%s' doesn't exist in Zenodo", community)
           self$ERROR(errorMsg)
           stop(errorMsg)
@@ -499,9 +826,278 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
         }
       }
       return(removed)
-    }
+    },
     
-    #TODO missing metadata setter methods
+    #setGrants
+    setGrants = function(grants){
+      if(is.null(self$metadata$grants)) self$metadata$grants <- list()
+      for(grant in grants){
+        self$addGrant(grant)
+      }
+    },
+    
+    #addGrant
+    addGrant = function(grant){
+      added <- FALSE
+      zen <- ZenodoManager$new()
+      if(is.null(self$metadata$grants)) self$metadata$grants <- list()
+      if(!(grant %in% self$metadata$grants)){
+        if(regexpr("::", grant)>0){
+          zen_grant <- zen$getGrantById(grant)
+          if(is.null(zen_grant)){
+            warnMsg <- sprintf("Grant with id '%s' doesn't exist in Zenodo", grant)
+            self$WARN(warnMsg)
+          }
+        }
+        self$metadata$grants[[length(self$metadata$grants)+1]] <- list(id = grant)
+        added <- TRUE
+      }
+      return(added)
+    },
+    
+    #removeGrant
+    removeGrant = function(grant){
+      removed <- FALSE
+      if(!is.null(self$metadata$grants)){
+        for(i in 1:length(self$metadata$grants)){
+          grt <- self$metadata$grants[[i]]
+          if(grt == grant){
+            self$metadata$grants[[i]] <- NULL
+            removed <- TRUE
+            break;
+          }
+        }
+      }
+      return(removed)
+    },
+    
+    #setJournalTitle
+    setJournalTitle = function(title){
+      self$metadata$journal_title <- title
+    },
+    
+    #setJournalVolume
+    setJournalVolume = function(volume){
+      self$metadata$journal_volume <- volume
+    },
+    
+    #setJournalIssue
+    setJournalIssue = function(issue){
+      self$metadata$journal_issue <- issue
+    },
+    
+    #setJournalPages
+    setJournalPages = function(pages){
+      self$metadata$journal_pages <- pages
+    },
+    
+    #setConferenceTitle
+    setConferenceTitle = function(title){
+      self$metadata$conference_title <- title
+    },
+    
+    #setConferenceAcronym
+    setConferenceAcronym = function(acronym){
+      self$metadata$conference_acronym <- acronym
+    },
+    
+    #setConferenceDates
+    setConferenceDates = function(dates){
+      self$metadata$conference_dates <- dates
+    },
+    
+    #setConferencePlace
+    setConferencePlace = function(place){
+      self$metadata$conference_place <- place
+    },
+    
+    #setConferenceUrl
+    setConferenceUrl = function(url){
+      self$metadata$conference_url <- url
+    },
+    
+    #setConferenceSession
+    setConferenceSession = function(session){
+      self$metadata$conference_session <- session
+    },
+    
+    #setConferenceSessionPart
+    setConferenceSessionPart = function(part){
+      self$metadata$conference_session_part <- part
+    },
+    
+    #setImprintPublisher
+    setImprintPublisher = function(publisher){
+      self$metadata$imprint_publisher <- publisher
+    },
+    
+    #setImprintISBN
+    setImprintISBN = function(isbn){
+      self$metadata$imprint_isbn <- isbn
+    },
+    
+    #setImprintPlace
+    setImprintPlace = function(place){
+      self$metadata$imprint_place <- place
+    },
+    
+    #setPartofTitle
+    setPartofTitle = function(title){
+      self$metadata$partof_title <- title
+    },
+    
+    #setPartofPages
+    setPartofPages = function(pages){
+      self$metadata$partof_pages <- pages
+    },
+    
+    #setThesisUniversity
+    setThesisUniversity = function(university){
+      self$metadata_thesis_university <- university
+    },
+    
+    #addThesisSupervisor
+    addThesisSupervisor = function(firstname, lastname, affiliation = NULL, orcid = NULL, gnd = NULL){
+      supervisor <- list(name = paste(lastname, firstname, sep=", "))
+      if(!is.null(affiliation)) supervisor <- c(supervisor, affiliation = affiliation)
+      if(!is.null(orcid)) supervisor <- c(supervisor, orcid = orcid)
+      if(!is.null(gnd)) supervisor <- c(supervisor, gnd = gnd)
+      if(is.null(self$metadata$thesis_supervisors)) self$metadata$thesis_supervisors <- list()
+      self$metadata$thesis_supervisors[[length(self$metadata$thesis_supervisors)+1]] <- supervisor
+    },
+    
+    #removeThesisSupervisor
+    removeThesisSupervisor = function(by,property){
+      removed <- FALSE
+      for(i in 1:length(self$metadata$thesis_supervisors)){
+        supervisor <- self$metadata$thesis_supervisors[[i]]
+        if(supervisor[[by]]==property){
+          self$metadata$thesis_supervisors[[i]] <- NULL
+          removed <- TRUE 
+        }
+      }
+      return(removed)
+    },
+    
+    #removeThesisSupervisorByName
+    removeThesisSupervisorByName = function(name){
+      return(self$removeThesisSupervisor(by = "name", name))
+    },
+    
+    #removeThesisSupervisorByAffiliation
+    removeThesisSupervisorByAffiliation = function(affiliation){
+      return(self$removeThesisSupervisor(by = "affiliation", affiliation))
+    },
+    
+    #removeThesisSupervisorByORCID
+    removeThesisSupervisorByORCID = function(orcid){
+      return(self$removeThesisSupervisor(by = "orcid", orcid))
+    },
+    
+    #removeThesisSupervisorByGND
+    removeThesisSupervisorByGND = function(gnd){
+      return(self$removeThesisSupervisor(by = "gnd", gnd))
+    },
+    
+    #exportAs
+    exportAs = function(format, filename){
+      formats <- c("BibTeX","CSL","DataCite","DublinCore","DCAT","JSON","JSON-LD","GeoJSON","MARCXML")
+      zenodo_url <- self$links$record_html
+      if(is.null(zenodo_url)){
+        stop("Ups, this record seems a draft, can't export metadata until it is published!")
+      }
+      metadata_export_url <- switch(format,
+        "BibTeX" = paste0(zenodo_url,"/export/hx"),
+        "CSL" =  paste0(zenodo_url,"/export/csl"),
+        "DataCite" =  paste0(zenodo_url,"/export/dcite4"),
+        "DublinCore" =  paste0(zenodo_url,"/export/xd"),
+        "DCAT" =  paste0(zenodo_url,"/export/dcat"),
+        "JSON" =  paste0(zenodo_url,"/export/json"),
+        "JSON-LD" =  paste0(zenodo_url,"/export/schemaorg_jsonld"),
+        "GeoJSON" =  paste0(zenodo_url,"/export/geojson"),
+        "MARCXML" =  paste0(zenodo_url,"/export/xm"),
+        NULL
+      )
+      if(is.null(metadata_export_url)){
+        stop(sprintf("Unknown Zenodo metadata format '%s'. Supported formats are [%s]", format, paste(formats, collapse=",")))
+      }
+      
+      fileext <- switch(format,
+        "BibTeX" = "bib",
+        "CSL" = "json",
+        "DataCite" ="xml",
+        "DublinCore" = "xml",
+        "DCAT" = "rdf",
+        "JSON" = "json",
+        "JSON-LD" = "json",
+        "GeoJSON" = "json",
+        "MARCXML" = "xml"           
+      )
+      
+      html <- xml2::read_html(metadata_export_url)
+      reference <- html_nodes(html, "pre")
+      reference <- reference[1]
+      reference <- gsub("<pre.*\">","",reference)
+      reference <- gsub("</pre>","",reference)
+      if(fileext %in% c("xml", "rdf")){
+        reference <- gsub("&lt;", "<", reference)
+        reference <- gsub("&gt;", ">", reference)
+      }
+    
+      destfile <- paste(paste0(filename, "_", format), fileext, sep = ".")
+      writeChar(reference, destfile, eos = NULL)
+    },
+    
+    #exportAsBibTeX
+    exportAsBibTeX = function(filename){
+      self$exportAs("BibTeX", filename)
+    },
+    
+    #exportAsCSL
+    exportAsCSL = function(filename){
+      self$exportAs("CSL", filename)
+    },
+    
+    #exportAsDataCite
+    exportAsDataCite = function(filename){
+      self$exportAs("DataCite", filename)
+    },
+    
+    #exportAsDublinCore
+    exportAsDublinCore = function(filename){
+      self$exportAs("DublinCore", filename)
+    },
+    
+    #exportAsDCAT
+    exportAsDCAT = function(filename){
+      self$exportAs("DCAT", filename)
+    },
+    
+    #exportAsJSON
+    exportAsJSON = function(filename){
+      self$exportAs("JSON", filename)
+    },
+    
+    #exportAsJSONLD
+    exportAsJSONLD = function(filename){
+      self$exportAs("JSON-LD", filename)
+    },
+    
+    #exportAsGeoJSON
+    exportAsGeoJSON = function(filename){
+      self$exportAs("GeoJSON", filename)
+    },
+    
+    #exportAsMARCXML
+    exportAsMARCXML = function(filename){
+      self$exportAs("MARCXML", filename)
+    },
+    
+    #exportAsAllFormats
+    exportAsAllFormats = function(filename){
+      formats <- c("BibTeX","CSL","DataCite","DublinCore","DCAT","JSON","JSON-LD","GeoJSON","MARCXML")
+      invisible(lapply(formats, self$exportAs, filename))
+    }
     
   )
 )

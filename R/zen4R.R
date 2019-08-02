@@ -7,6 +7,8 @@
 #' @import methods
 #' @import httr
 #' @import jsonlite
+#' @import rvest
+#' @import xml2
 #' 
 #' @title Interface to 'Zenodo' REST API
 #' @description Provides an Interface to 'Zenodo' (<https://zenodo.org>) REST API, 
@@ -17,8 +19,8 @@
 #'  \tabular{ll}{
 #'    Package: \tab zen4R\cr
 #'    Type: \tab Package\cr
-#'    Version: \tab 0.1\cr
-#'    Date: \tab 2019-06-03\cr
+#'    Version: \tab 0.2\cr
+#'    Date: \tab 2019-08-02\cr
 #'    License: \tab MIT\cr
 #'    LazyLoad: \tab yes\cr
 #'  }

@@ -79,6 +79,39 @@ ZenodoRecord
    Removes a creator by ORCID. Returns \code{TRUE} if some creator was removed, 
    \code{FALSE} otherwise.
  }
+ \item{\code{removeCreatorByGND(gnd)}}{
+   Removes a creator by GND. Returns \code{TRUE} if some creator was removed, 
+   \code{FALSE} otherwise.
+ }
+ \item{\code{addContributor(firsname, lastname, type, affiliation, orcid, gnd)}}{
+   Add a contributor for the record. Firstname, lastname, and type are mandatory.
+   The type should be an object of class \code{character} among values: ContactPerson, 
+   DataCollector, DataCurator, DataManager, Distributor, Editor, Funder, HostingInstitution, 
+   Producer, ProjectLeader, ProjectManager, ProjectMember, RegistrationAgency, RegistrationAuthority,
+   RelatedPerson, Researcher, ResearchGroup, RightsHolder, Supervisor, Sponsor, WorkPackageLeader, Other. 
+ }
+ \item{\code{removeContributor(by,property)}}{
+   Removes a contributor by a property. The \code{by} parameter should be the name
+   of the contributor property ('name' - in the form 'lastname, firstname', 'affiliation',
+   'orcid' or 'gnd'). Returns \code{TRUE} if some contributor was removed, 
+   \code{FALSE} otherwise.
+ }
+ \item{\code{removeContributorByName(name)}}{
+   Removes a contributor by name. Returns \code{TRUE} if some contributor was removed, 
+   \code{FALSE} otherwise.
+ }
+ \item{\code{removeContributorByAffiliation(affiliation)}}{
+   Removes a contributor by affiliation. Returns \code{TRUE} if some contributor was removed, 
+   \code{FALSE} otherwise.
+ }
+ \item{\code{removeContributorByORCID(orcid)}}{
+   Removes a contributor by ORCID. Returns \code{TRUE} if some contributor was removed, 
+   \code{FALSE} otherwise.
+ }
+ \item{\code{removeContributorByGND(gnd)}}{
+   Removes a contributor by GND. Returns \code{TRUE} if some contributor was removed, 
+   \code{FALSE} otherwise.
+ }
  \item{\code{setLicense(licenseId)}}{
    Set license. The license should be set with the Zenodo id of the license. If not
    recognized by Zenodo, the function will return an error. The list of licenses can
@@ -87,6 +120,20 @@ ZenodoRecord
  \item{\code{setDOI(doi)}}{
    Set the DOI. This method can be used if a DOI has been already assigned outside Zenodo.
    This method will call the method \code{$prereserveDOI(FALSE)}.
+ }
+ \item{\code{getConceptDOI()}}{
+   Get the concept (generic) DOI. The concept DOI is a generic DOI common to all versions
+   of a Zenodo record. When a deposit is unsubmitted, this concept DOI is inherited based
+   on the prereserved DOI of the first record version.
+ }
+ \item{\code{getFirstDOI()}}{
+   Get DOI of the first record version.
+ }
+ \item{\code{getLastDOI()}}{
+   Get DOI of the latest record version.
+ }
+ \item{\code{getVersions()}}{
+   Get a \code{data.frame} listing record versions with publication date and DOI.
  }
  \item{\code{setVersion(version)}}{
    Set the version.
@@ -102,6 +149,17 @@ ZenodoRecord
  }
  \item{code{removeRelatedIdentifier(relation, identifier)}}{
    Remove a related identifier
+ }
+ \item{\code{setReferences(references)}}{
+   Set a vector of character strings as references
+ }
+ \item{\code{addReference(reference)}}{
+   Adds a reference to the record metadata. Return \code{TRUE} if added, 
+   \code{FALSE} otherwise.
+ }
+ \item{\code{removedReference(reference)}}{
+   Removes a reference from the record metadata. Return \code{TRUE} if removed, 
+   \code{FALSE} otherwise.
  }
  \item{\code{setKeywords(keywords)}}{
    Set a vector of character strings as keywords
@@ -145,6 +203,133 @@ ZenodoRecord
  \item{\code{removedCommunity(community)}}{
    Removes a community from the record metadata. Return \code{TRUE} if removed, 
    \code{FALSE} otherwise.
+ }
+ \item{\code{setGrants(grants)}}{
+   Set a vector of character strings identifying grants
+ }
+ \item{\code{addGrant(grant)}}{
+   Adds a grant to the record metadata. Return \code{TRUE} if added, 
+   \code{FALSE} otherwise. The grant should be set with the id of the grant. If not
+   recognized by Zenodo, the function will return an warning only. The list of grants can
+   fetched with the \code{ZenodoManager} and the function \code{$getGrants()}.
+ }
+ \item{\code{removeGrant(grant)}}{
+   Removes a grant from the record metadata. Return \code{TRUE} if removed, 
+   \code{FALSE} otherwise.
+ }
+ \item{\code{setJournalTitle(title)}}{
+   Set Journal title, object of class \code{\link{character}}, if deposition is a published article.
+ }
+ \item{\code{setJournalVolume(volume)}}{
+   Set Journal volume, object of class \code{\link{character}}, if deposition is a published article.
+ }
+ \item{\code{setJournalIssue(issue)}}{
+   Set Journal issue, object of class \code{\link{character}}, if deposition is a published article.
+ }
+ \item{\code{setJournalPages(pages)}}{
+   Set Journal pages, object of class \code{\link{character}}, if deposition is a published article.
+ }
+ \item{\code{setConferenceTitle(title)}}{
+  Set Conference title, object of class \code{\link{character}}.
+ }
+ \item{\code{setConferenceAcronym(acronym)}}{
+   Set conference acronym, object of class \code{\link{character}}.
+ }
+ \item{\code{setConferenceDates(dates)}}{
+   Set conference dates, object of class \code{\link{character}}.
+ }
+ \item{\code{setConferencePlace(place)}}{
+   Set conference place, object of class \code{\link{character}}, in the format city, country 
+   (e.g. Kingston, Jamaica). Conference title or acronym must also be specified if this field 
+   is specified.
+ }
+ \item{\code{setConferenceUrl(url)}}{
+   Set conference url, object of class \code{\link{character}}.
+ }
+ \item{\code{setConferenceSession(session)}}{
+   Set conference session, object of class \code{\link{character}}.
+ }
+ \item{\code{setConferenceSessionPart(part)}}{
+   Set conference session part, object of class \code{\link{character}}.
+ }
+ \item{\code{setImprintPublisher(publisher)}}{
+   Set imprint publisher, object of class \code{\link{character}}.
+ }
+ \item{\code{setImprintISBN(isbn)}}{
+   Set imprint ISBN, object of class \code{\link{character}}.
+ }
+ \item{\code{setImprintPlace(place)}}{
+   Set imprint place, object of class \code{\link{character}}.
+ }
+ \item{\code{setPartofTitle(title)}}{
+   Set the book title in case of a chapter, object of class \code{\link{character}}.
+ }
+ \item{\code{setPartofPages(pages)}}{
+   Set the page numbers of book, object of class \code{\link{character}}.
+ }
+ \item{\code{setThesisUniversity(university)}}{
+   Set the thesis university, object of class \code{\link{character}}
+ }
+ \item{\code{addThesisSupervisor(firsname, lastname, affiliation, orcid, gnd)}}{
+   Add a thesis supervisor for the record.
+ }
+ \item{\code{removeThesisSupervisor(by,property)}}{
+   Removes a thesi supervisor by a property. The \code{by} parameter should be the name
+   of the thesis supervisor property ('name' - in the form 'lastname, firstname', 'affiliation',
+   'orcid' or 'gnd'). Returns \code{TRUE} if some thesis supervisor was removed, 
+   \code{FALSE} otherwise.
+ }
+ \item{\code{removeThesisSupervisorByName(name)}}{
+   Removes a thesis supervisor by name. Returns \code{TRUE} if some thesis supervisor was removed, 
+   \code{FALSE} otherwise.
+ }
+ \item{\code{removeThesisSupervisorByAffiliation(affiliation)}}{
+   Removes a thesis supervisor by affiliation. Returns \code{TRUE} if some thesis supervisor was removed, 
+   \code{FALSE} otherwise.
+ }
+ \item{\code{removeThesisSupervisorByORCID(orcid)}}{
+   Removes a thesis supervisor by ORCID. Returns \code{TRUE} if some thesis supervisor was removed, 
+   \code{FALSE} otherwise.
+ }
+ \item{\code{removeThesisSupervisorByGND(gnd)}}{
+   Removes a thesis supervisor by GND. Returns \code{TRUE} if some thesis supervisor was removed, 
+   \code{FALSE} otherwise.
+ }
+ \item{\code{exportAs(format, filename)}}{
+   Export metadata in a format supported by Zenodo. Supported formats are: BibTeX, CSL, DataCite, 
+   DublinCore, DCAT, JSON, JSON-LD, GeoJSON, MARCXML. The exported will be named with the specified
+   filename followed by the format name.
+ }
+ \item{\code{exportAsBibTeX(filename)}}{
+   Export metadata as BibTeX (BIB) file
+ }
+ \item{\code{exportAsCSL(filename)}}{
+   Export metadata as CSL (JSON) file
+ }
+ \item{\code{exportAsDataCite(filename)}}{
+   Export metadata as DataCite (XML) file
+ }
+ \item{\code{exportAsDublinCore(filename)}}{
+   Export metadata as Dublin Core file
+ }
+ \item{\code{exportAsDCAT(filename)}}{
+   Export metadata as DCAT (RDF) file
+ }
+ \item{\code{exportAsJSON(filename)}}{
+   Export metadata as JSON file
+ }
+ \item{\code{exportAsJSONLD(filename)}}{
+   Export metadata as JSON-LD (JSON) file
+ }
+ \item{\code{exportAsGeoJSON(filename)}}{
+   Export metadata as GeoJSON (JSON) file
+ }
+ \item{\code{exportAsMARCXML{filename}}}{
+   Export metadata as MARCXML (XML) file
+ }
+ \item{\code{exportAsAllFormats(filename)}}{
+   Export metadata as all Zenodo supported metadata formats. THis function will
+   create one file per Zenodo metadata formats.
  }
 }
 }

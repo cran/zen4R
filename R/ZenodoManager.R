@@ -29,8 +29,39 @@
 #'  \item{\code{getCommunityById(id)}}{
 #'    Get community by Id
 #'  }
-#'  \item{\code{getDepositions()}}{
-#'    Get the list of Zenodo records deposited in your Zenodo workspace
+#'  \item{\code{getGrants(pretty)}}{
+#'    Get the list of grants. By default the argument \code{pretty} is set to 
+#'    \code{TRUE} which will returns the list of grants as \code{data.frame}.
+#'    Set \code{pretty = FALSE} to get the raw list of grants.
+#'  }
+#'  \item{\code{getGrantById(id)}}{
+#'    Get grant by Id
+#'  }
+#'  \item{\code{getFunders(pretty)}}{
+#'    Get the list of funders. By default the argument \code{pretty} is set to 
+#'    \code{TRUE} which will returns the list of funders as \code{data.frame}.
+#'    Set \code{pretty = FALSE} to get the raw list of funders.
+#'  }
+#'  \item{\code{getFunderById(id)}}{
+#'    Get funder by Id
+#'  }
+#'  \item{\code{getDepositions(q, size, all_versions)}}{
+#'    Get the list of Zenodo records deposited in your Zenodo workspace. By defaut
+#'    the list of depositions will be returned by page with a size of 10 results per
+#'    page (default size of the Zenodo API). The parameter \code{q} allows to specify
+#'    an ElasticSearch-compliant query to filter depositions (default query is empty 
+#'    to retrieve all records). The argument \code{all_versions}, if set to TRUE allows
+#'    to get all versions of records as part of the depositions list. Examples of 
+#'    ElasticSearch queries for Zenodo can be found at \href{http://help.zenodo.org/guides/search/}{http://help.zenodo.org/guides/search/}.
+#'  }
+#'  \item{\code{getDepositionByConceptDOI(conceptdoi)}}{
+#'    Get a Zenodo deposition record by concept DOI (generic DOI common to all deposition record versions)
+#'  }
+#'  \item{\code{getDepositionByDOI(doi)}}{
+#'    Get a Zenodo deposition record by DOI.
+#'  }
+#'  \item{\code{getDepositionById(recid)}}{
+#'    Get a Zenodo deposition record by its Zenodo specific record id.
 #'  }
 #'  \item{\code{depositRecord(record, publish)}}{
 #'    A method to deposit/update a Zenodo record. The record should be an object
@@ -39,16 +70,34 @@
 #'    is \code{FALSE}) can be set to \code{TRUE} (to use CAUTIOUSLY, only if you
 #'    want to publish your record)
 #'  }
+#'  \item{\code{depositRecordVersion(record, publish)}}{
+#'    A method to deposit a new version for a published record. For details about
+#'    the behavior of this function, see \href{https://developers.zenodo.org/#new-version}{https://developers.zenodo.org/#new-version}
+#'  }
 #'  \item{\code{deleteRecord(recordId)}}{
 #'    Deletes a Zenodo record based on its identifier.
 #'  }
-#'  \item{\code{deleteRecords()}}{
-#'    Deletes all Zenodo deposited (unpublished) records.
+#'  \item{\code{deleteRecordByDOI(doi)}}{
+#'    Deletes a Zenodo record based on its DOI. This DOI is necessarily a pre-reserved DOI corresponding to a draft record,
+#'     and not a published DOI, as Zenodo does not allow to delete a record already published.
+#'  }
+#'  \item{\code{deleteRecords(q)}}{
+#'    Deletes all Zenodo deposited (unpublished) records. The parameter \code{q} allows 
+#'    to specify an ElasticSearch-compliant query to filter depositions (default query 
+#'    is empty to retrieve all records). Examples of ElasticSearch queries for Zenodo 
+#'    can be found at \href{http://help.zenodo.org/guides/search/}{http://help.zenodo.org/guides/search/}. 
 #'  }
 #'  \item{\code{createEmptyRecord()}}{
 #'    Creates an empty record in the Zenodo deposit. Returns the record
 #'    newly created in Zenodo, as an object of class \code{ZenodoRecord}
 #'    with an assigned identifier.
+#'  }
+#'  \item{\code{editRecord(recordId)}}{
+#'    Unlocks a record already submitted. This is required to edit metadata of a Zenodo
+#'    record already published.
+#'  }
+#'  \item{\code{discardChanges(recordId)}}{
+#'    Discards changes operated on a record.
 #'  }
 #'  \item{\code{publishRecord(recordId)}}{
 #'    Publishes a deposited record online.
@@ -232,6 +281,181 @@ ZenodoManager <-  R6Class("ZenodoManager",
         self$INFO(sprintf("Successfuly fetched community '%s'",id))
       }else{
         self$ERROR(sprintf("Error while fetching community '%s': %s", id, out$message))
+        out <- NULL
+      }
+      return(out)
+    },
+    
+    #Grants
+    #------------------------------------------------------------------------------------------
+    
+    #getGrants
+    getGrants = function(pretty = TRUE, size = 1000){
+      
+      page <- 1
+      lastPage <- FALSE
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants?size=%s&page=%s", size, page), 
+                                  token = private$token, logger = self$loggerType)
+      zenReq$execute()
+      out <- NULL
+      if(zenReq$getStatus() == 200){
+        resp <- zenReq$getResponse()
+        grants <- resp$hits$hits
+        hasGrants <- length(grants)>0
+        while(hasGrants){
+          out <- c(out, grants)
+          if(!is.null(grants)){
+            self$INFO(sprintf("Successfuly fetched list of grants - page %s", page))
+            page <- page+1  #next
+          }else{
+            lastPage <- TRUE
+          }
+          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants?size=%s&page=%s", size, page), 
+                                      token = private$token, logger = self$loggerType)
+          zenReq$execute()
+          if(zenReq$getStatus() == 200){
+            resp <- zenReq$getResponse()
+            grants <- resp$hits$hits
+            hasGrants <- length(grants)>0
+          }else{
+            self$WARN("Maximum allowed size for list of grants - page %s - attempt to decrease size")
+            size <- size-1
+            hasGrants <- TRUE
+            grants <- NULL
+          }
+          if(lastPage) break;
+        }
+        self$INFO("Successfuly fetched list of grants!")
+      }else{
+        out <- zenReq$getResponse()
+        self$ERROR(sprintf("Error while fetching grants: %s", out$message))
+        for(error in out$errors){
+          self$ERROR(sprintf("Error: %s - %s", error$field, error$message))
+        }
+      }
+      
+      if(pretty){
+        out = do.call("rbind", lapply(out,function(x){
+          rec = data.frame(
+            id = x$metadata$internal_id,
+            code = x$metadata$code,
+            title = x$metadata$title,
+            startdate = x$metadata$startdate,
+            enddate = x$metadata$enddate,
+            url = x$metadata$url,
+            created = x$created,
+            updated = x$updated,
+            funder_country = x$metadata$funder$country,
+            funder_doi = x$metadata$funder$doi,
+            funder_name = x$metadata$funder$name,
+            funder_type = x$metadata$funder$type,
+            funder_subtype = x$metadata$funder$subtype,
+            funder_parent_country = x$metadata$funder$parent$country,
+            funder_parent_doi = x$metadata$funder$parent$doi,
+            funder_parent_name = x$metadata$funder$parent$name,
+            funder_parent_type = x$metadata$funder$parent$type,
+            funder_parent_subtype = x$metadata$funder$parent$subtype,
+            stringsAsFactors = FALSE
+          )
+          return(rec)
+        }))
+      }
+      return(out)
+    },
+    
+    #getGrantById
+    getGrantById = function(id){
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants/%s",id),
+                                  token= private$token, logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        self$INFO(sprintf("Successfuly fetched grant '%s'",id))
+      }else{
+        self$ERROR(sprintf("Error while fetching grant '%s': %s", id, out$message))
+        out <- NULL
+      }
+      return(out)
+    },
+    
+    #Funders
+    #------------------------------------------------------------------------------------------
+    
+    #getFunders
+    getFunders = function(pretty = TRUE, size = 1000){
+      
+      page <- 1
+      lastPage <- FALSE
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders?size=%s&page=%s", size, page), 
+                                  token = private$token, logger = self$loggerType)
+      zenReq$execute()
+      out <- NULL
+      if(zenReq$getStatus() == 200){
+        resp <- zenReq$getResponse()
+        funders <- resp$hits$hits
+        hasFunders <- length(funders)>0
+        while(hasFunders){
+          out <- c(out, funders)
+          if(!is.null(funders)){
+            self$INFO(sprintf("Successfuly fetched list of funders - page %s", page))
+            page <- page+1  #next
+          }else{
+            lastPage <- TRUE
+          }
+          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders?size=%s&page=%s", size, page), 
+                                      token = private$token, logger = self$loggerType)
+          zenReq$execute()
+          if(zenReq$getStatus() == 200){
+            resp <- zenReq$getResponse()
+            funders <- resp$hits$hits
+            hasFunders <- length(funders)>0
+          }else{
+            self$WARN("Maximum allowed size for list of funders - page %s - attempt to decrease size")
+            size <- size-1
+            hasFunders <- TRUE
+            funders <- NULL
+          }
+          if(lastPage) break;
+        }
+        self$INFO("Successfuly fetched list of funders!")
+      }else{
+        out <- zenReq$getResponse()
+        self$ERROR(sprintf("Error while fetching funders: %s", out$message))
+        for(error in out$errors){
+          self$ERROR(sprintf("Error: %s - %s", error$field, error$message))
+        }
+      }
+      
+      if(pretty){
+        out = do.call("rbind", lapply(out,function(x){
+          rec = data.frame(
+            id = x$metadata$doi,
+            doi = x$metadata$doi,
+            country = x$metadata$country,
+            name = x$metadata$name,
+            type = x$metadata$type,
+            subtype = x$metadata$subtype,
+            created = x$created,
+            updated = x$updated,
+            stringsAsFactors = FALSE
+          )
+          return(rec)
+        }))
+      }
+      return(out)
+    },
+    
+    #getFunderById
+    getFunderById = function(id){
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders/%s",id),
+                                  token= private$token, logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        self$INFO(sprintf("Successfuly fetched funder '%s'",id))
+      }else{
+        self$ERROR(sprintf("Error while fetching funder '%s': %s", id, out$message))
+        out <- NULL
       }
       return(out)
     },
@@ -240,14 +464,31 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #------------------------------------------------------------------------------------------
     
     #getDepositions
-    getDepositions = function(){
-      zenReq <- ZenodoRequest$new(private$url, "GET", "deposit/depositions", 
+    getDepositions = function(q = "", size = 10, all_versions = FALSE){
+      page <- 1
+      req <- sprintf("deposit/depositions?q=%s&size=%s&page=%s", q, size, page)
+      if(all_versions) req <- paste0(req, "&all_versions=1")
+      zenReq <- ZenodoRequest$new(private$url, "GET", req, 
                                   token = private$token, logger = self$loggerType)
       zenReq$execute()
       out <- NULL
       if(zenReq$getStatus() == 200){
-        out <- lapply(zenReq$getResponse(), ZenodoRecord$new)
-        self$INFO("Successfuly fetched list of depositions")
+        resp <- zenReq$getResponse()
+        hasRecords <- length(resp)>0
+        while(hasRecords){
+          out <- c(out, lapply(resp, ZenodoRecord$new))
+          self$INFO(sprintf("Successfuly fetched list of depositions - page %s", page))
+          #next
+          page <- page+1
+          nextreq <- sprintf("deposit/depositions?q=%s&size=%s&page=%s", q, size, page)
+          if(all_versions) nextreq <- paste0(nextreq, "&all_versions=1")
+          zenReq <- ZenodoRequest$new(private$url, "GET", nextreq, 
+                                      token = private$token, logger = self$loggerType)
+          zenReq$execute()
+          resp <- zenReq$getResponse()
+          hasRecords <- length(resp)>0
+        }
+        self$INFO("Successfuly fetched list of depositions!")
       }else{
         out <- zenReq$getResponse()
         self$ERROR(sprintf("Error while fetching depositions: %s", out$message))
@@ -256,6 +497,76 @@ ZenodoManager <-  R6Class("ZenodoManager",
         }
       }
       return(out)
+    },
+    
+    #getDepositionByConceptDOI
+    getDepositionByConceptDOI = function(conceptdoi){
+      query <- sprintf("conceptdoi:%s", gsub("/", "//", conceptdoi))
+      result <- self$getDepositions(q = query)
+      if(length(result)>0){
+        result <- result[[1]]
+        if(result$conceptdoi == conceptdoi){
+          self$INFO(sprintf("Successfuly fetched record for concept DOI '%s'!", conceptdoi))
+        }else{
+          result <- NULL
+        }
+      }else{
+        result <- NULL
+      }
+      if(is.null(result)) self$WARN(sprintf("No record for concept DOI '%s'!", conceptdoi))
+      if(is.null(result)){
+        #try to get record by id
+        if( regexpr("zenodo", conceptdoi)>0){
+          recid <- unlist(strsplit(conceptdoi, "zenodo."))[2]
+          self$INFO(sprintf("Try to get deposition by Zenodo specific record id '%s'", recid))
+          result <- self$getDepositionById(recid)
+        }
+      }
+      return(result)
+    },
+    
+    #getDepositionByDOI
+    getDepositionByDOI = function(doi){
+      query <- sprintf("doi:%s", gsub("/", "//", doi))
+      result <- self$getDepositions(q = query, all_versions = TRUE)
+      if(length(result)>0){
+        result <- result[[1]]
+        if(result$doi == doi){
+          self$INFO(sprintf("Successfuly fetched record for DOI '%s'!",doi))
+        }else{
+          result <- NULL
+        }
+      }else{
+        result <- NULL
+      }
+      if(is.null(result)) self$WARN(sprintf("No record for DOI '%s'!",doi))
+      if(is.null(result)){
+        #try to get record by id
+        if( regexpr("zenodo", doi)>0){
+          recid <- unlist(strsplit(doi, "zenodo."))[2]
+          self$INFO(sprintf("Try to get deposition by Zenodo specific record id '%s'", recid))
+          result <- self$getDepositionById(recid)
+        }
+      }
+      return(result)
+    },
+    
+    #getDepositionbyId
+    getDepositionById = function(recid){
+      query <- sprintf("recid:%s", recid)
+      result <- self$getDepositions(q = query, all_versions = TRUE)
+      if(length(result)>0){
+        result <- result[[1]]
+        if(result$id == recid){
+          self$INFO(sprintf("Successfuly fetched record for id '%s'!",recid))
+        }else{
+          result <- NULL
+        }
+      }else{
+        result <- NULL
+      }
+      if(is.null(result)) self$WARN(sprintf("No record for id '%s'!",recid))
+      return(result)
     },
     
     #depositRecord
@@ -287,6 +598,63 @@ ZenodoManager <-  R6Class("ZenodoManager",
       return(out)
     },
     
+    #depositRecordVersion
+    depositRecordVersion = function(record, delete_latest_files = TRUE, files = list(), publish = FALSE){
+      type <- "POST"
+      if(is.null(record$conceptrecid)){
+        stop("The record concept id cannot be null for creating a new version")
+      }
+      if(is.null(record$conceptdoi)){
+        stop("Concept DOI is null: a new version can only be added to a published record")
+      }
+      
+      #id of the last record
+      record_id <- unlist(strsplit(record$links$latest,"records/"))[[2]] 
+      
+      self$INFO(sprintf("Creating new version for record '%s' (concept DOI: '%s')", record_id, record$getConceptDOI()))
+      request <- sprintf("deposit/depositions/%s/actions/newversion", record_id)
+      zenReq <- ZenodoRequest$new(private$url, type, request, data = NULL,
+                                  token = private$token, logger = self$loggerType)
+      zenReq$execute()
+      out <- NULL
+      out_id <- NULL
+      if(zenReq$getStatus() %in% c(200,201)){
+        out <- zenReq$getResponse()
+        out_id <- unlist(strsplit(out$links$latest_draft,"depositions/"))[[2]]
+        out <- ZenodoRecord$new(obj = out)
+        self$INFO(sprintf("Successful new version record created for concept DOI '%s'", record$getConceptDOI()))
+        record$metadata$doi <- NULL
+        record$doi <- NULL
+        record$prereserveDOI(TRUE)
+        out <- self$depositRecord(record)
+        
+        if(delete_latest_files){
+          self$INFO("Deleting files copied from latest record")
+          invisible(lapply(out$files, function(x){ self$deleteFile(out$id, x$id)}))
+        }
+        if(length(files)>0){
+          self$INFO("Upload files to new version")
+          for(f in files){
+            self$INFO(sprintf("Upload file '%s' to new version", f))
+            self$uploadFile(f, out$id)
+          }
+        }
+        
+        if(publish){
+          out <- self$publishRecord(record$id)
+        }
+        
+      }else{
+        out <- zenReq$getResponse()
+        self$ERROR(sprintf("Error while creating new version: %s", out$message))
+        for(error in out$errors){
+          self$ERROR(sprintf("Error: %s - %s", error$field, error$message))
+        }
+      }
+      
+      return(out)
+    },
+    
     #deleteRecord
     deleteRecord = function(recordId){
       zenReq <- ZenodoRequest$new(private$url, "DELETE", "deposit/depositions", 
@@ -304,18 +672,30 @@ ZenodoManager <-  R6Class("ZenodoManager",
       return(out)
     },
     
+    #deleteRecordByDOI
+    deleteRecordByDOI = function(doi){
+      self$INFO(sprintf("Deleting record with DOI '%s'", doi))
+      deleted <- FALSE
+      rec <- self$getDepositionByDOI(doi)
+      if(!is.null(rec)){
+        deleted <- self$deleteRecord(rec$id)
+      }
+      return(deleted)
+    },
+    
     #deleteRecords
-    deleteRecords = function(){
-      records <- self$getDepositions()
+    deleteRecords = function(q = "", size = 10){
+      records <- self$getDepositions(q = q, size = size)
       records <- records[sapply(records, function(x){!x$submitted})]
-      while(length(records)>0){
+      hasDraftRecords <- length(records)>0
+      if(length(records)>0){
         record_ids <- sapply(records, function(x){x$id})
-        deleted <- all(sapply(record_ids, self$deleteRecord))
+        deleted.all <- sapply(record_ids, self$deleteRecord)
+        deleted.all <- deleted.all[is.na(deleted.all)]
+        deleted <- all(deleted.all)
         if(!deleted){
           self$ERROR("Error while deleting records")
         }
-        records <- self$getDepositions()
-        records <- records[sapply(records, function(x){!x$submitted})]
       }
       self$INFO("Successful deleted records")
     },
@@ -323,6 +703,40 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #createRecord
     createEmptyRecord = function(){
       return(self$depositRecord(NULL))
+    },
+    
+    #editRecord
+    editRecord = function(recordId){
+      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("deposit/depositions/%s/actions/edit", recordId),
+                                  token = private$token,
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- NULL
+      if(zenReq$getStatus() == 201){
+        out <- ZenodoRecord$new(obj = zenReq$getResponse())
+        self$INFO(sprintf("Successful unlocked record '%s' for edition", recordId))
+      }else{
+        out <- zenReq$getResponse()
+        self$ERROR(sprintf("Error while unlocking record '%s' for edition: %s", recordId, out$message))
+      }
+      return(out)
+    },
+    
+    #discardChanges
+    discardChanges = function(recordId){
+      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("deposit/depositions/%s/actions/discard", recordId),
+                                  token = private$token,
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- NULL
+      if(zenReq$getStatus() == 201){
+        out <- ZenodoRecord$new(obj = zenReq$getResponse())
+        self$INFO(sprintf("Successful discarded changes for record '%s' for edition", recordId))
+      }else{
+        out <- zenReq$getResponse()
+        self$ERROR(sprintf("Error while discarding record '%s' changes: %s", recordId, out$message))
+      }
+      return(out)
     },
     
     #publisRecord
@@ -362,7 +776,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #uploadFile
     uploadFile = function(path, recordId){
       fileparts <- strsplit(path,"/")
-      filename <- fileparts[[length(fileparts)]]
+      filename <- unlist(fileparts)[length(fileparts)]
       zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("deposit/depositions/%s/files", recordId), 
                                   data = filename, file = upload_file(path),
                                   token = private$token,

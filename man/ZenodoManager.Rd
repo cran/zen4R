@@ -43,8 +43,39 @@ Main user class to be used with \pkg{zen4R}
  \item{\code{getCommunityById(id)}}{
    Get community by Id
  }
- \item{\code{getDepositions()}}{
-   Get the list of Zenodo records deposited in your Zenodo workspace
+ \item{\code{getGrants(pretty)}}{
+   Get the list of grants. By default the argument \code{pretty} is set to 
+   \code{TRUE} which will returns the list of grants as \code{data.frame}.
+   Set \code{pretty = FALSE} to get the raw list of grants.
+ }
+ \item{\code{getGrantById(id)}}{
+   Get grant by Id
+ }
+ \item{\code{getFunders(pretty)}}{
+   Get the list of funders. By default the argument \code{pretty} is set to 
+   \code{TRUE} which will returns the list of funders as \code{data.frame}.
+   Set \code{pretty = FALSE} to get the raw list of funders.
+ }
+ \item{\code{getFunderById(id)}}{
+   Get funder by Id
+ }
+ \item{\code{getDepositions(q, size, all_versions)}}{
+   Get the list of Zenodo records deposited in your Zenodo workspace. By defaut
+   the list of depositions will be returned by page with a size of 10 results per
+   page (default size of the Zenodo API). The parameter \code{q} allows to specify
+   an ElasticSearch-compliant query to filter depositions (default query is empty 
+   to retrieve all records). The argument \code{all_versions}, if set to TRUE allows
+   to get all versions of records as part of the depositions list. Examples of 
+   ElasticSearch queries for Zenodo can be found at \href{http://help.zenodo.org/guides/search/}{http://help.zenodo.org/guides/search/}.
+ }
+ \item{\code{getDepositionByConceptDOI(conceptdoi)}}{
+   Get a Zenodo deposition record by concept DOI (generic DOI common to all deposition record versions)
+ }
+ \item{\code{getDepositionByDOI(doi)}}{
+   Get a Zenodo deposition record by DOI.
+ }
+ \item{\code{getDepositionById(recid)}}{
+   Get a Zenodo deposition record by its Zenodo specific record id.
  }
  \item{\code{depositRecord(record, publish)}}{
    A method to deposit/update a Zenodo record. The record should be an object
@@ -53,16 +84,34 @@ Main user class to be used with \pkg{zen4R}
    is \code{FALSE}) can be set to \code{TRUE} (to use CAUTIOUSLY, only if you
    want to publish your record)
  }
+ \item{\code{depositRecordVersion(record, publish)}}{
+   A method to deposit a new version for a published record. For details about
+   the behavior of this function, see \href{https://developers.zenodo.org/#new-version}{https://developers.zenodo.org/#new-version}
+ }
  \item{\code{deleteRecord(recordId)}}{
    Deletes a Zenodo record based on its identifier.
  }
- \item{\code{deleteRecords()}}{
-   Deletes all Zenodo deposited (unpublished) records.
+ \item{\code{deleteRecordByDOI(doi)}}{
+   Deletes a Zenodo record based on its DOI. This DOI is necessarily a pre-reserved DOI corresponding to a draft record,
+    and not a published DOI, as Zenodo does not allow to delete a record already published.
+ }
+ \item{\code{deleteRecords(q)}}{
+   Deletes all Zenodo deposited (unpublished) records. The parameter \code{q} allows 
+   to specify an ElasticSearch-compliant query to filter depositions (default query 
+   is empty to retrieve all records). Examples of ElasticSearch queries for Zenodo 
+   can be found at \href{http://help.zenodo.org/guides/search/}{http://help.zenodo.org/guides/search/}. 
  }
  \item{\code{createEmptyRecord()}}{
    Creates an empty record in the Zenodo deposit. Returns the record
    newly created in Zenodo, as an object of class \code{ZenodoRecord}
    with an assigned identifier.
+ }
+ \item{\code{editRecord(recordId)}}{
+   Unlocks a record already submitted. This is required to edit metadata of a Zenodo
+   record already published.
+ }
+ \item{\code{discardChanges(recordId)}}{
+   Discards changes operated on a record.
  }
  \item{\code{publishRecord(recordId)}}{
    Publishes a deposited record online.
