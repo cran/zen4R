@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/eblondel/zen4R.svg?branch=master)](https://travis-ci.org/eblondel/zen4R)
 [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/zen4R)](https://cran.r-project.org/package=zen4R)
-[![Github_Status_Badge](https://img.shields.io/badge/Github-0.2-blue.svg)](https://github.com/eblondel/zen4R)
+[![Github_Status_Badge](https://img.shields.io/badge/Github-0.3-blue.svg)](https://github.com/eblondel/zen4R)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2547036.svg)](https://doi.org/10.5281/zenodo.2547036)
 
 **R Interface to Zenodo REST API**
@@ -17,7 +17,7 @@ Many thanks to the following organizations that have provided fundings for stren
 
 <a href="https://en.ird.fr/"><img src="https://en.ird.fr/var/ird/storage/images/media/ird-sites-d-unites-de-recherche/dial/images/logos/logo_ird_2016_longueur_uk/4030160-1-eng-GB/logo_ird_2016_longueur_uk.png" height="60"/></a>
 
-For geometa sponsoring/funding new developments, enhancements, support requests, please contact me by [e-mail](mailto:emmanuel.blondel1@gmail.com)
+For zen4R sponsoring/funding new developments, enhancements, support requests, please contact me by [e-mail](mailto:emmanuel.blondel1@gmail.com)
 
 ## Citation
 
