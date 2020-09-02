@@ -47,8 +47,11 @@
 #'  \item{\code{setAccessConditions(accessConditions)}}{
 #'    Set access conditions.
 #'  }
-#'  \item{\code{addCreator(firsname, lastname, affiliation, orcid, gnd)}}{
-#'    Add a creator for the record.
+#'  \item{\code{addCreator(firsname, lastname, name, affiliation, orcid, gnd)}}{
+#'    Add a creator for the record. One approach is to use the \code{firstname} and
+#'    \code{lastname} arguments, that by default will be concatenated for Zenodo as
+#'    \code{lastname, firstname}. For more flexibility over this, the \code{name}
+#'    argument can be directly used.
 #'  }
 #'  \item{\code{removeCreator(by,property)}}{
 #'    Removes a creator by a property. The \code{by} parameter should be the name
@@ -320,6 +323,30 @@
 #'    Export metadata as all Zenodo supported metadata formats. THis function will
 #'    create one file per Zenodo metadata formats.
 #'  }
+#'  \item{\code{listFiles(pretty)}}{
+#'    List files attached to the record. By default \code{pretty} is TRUE and the output
+#'    will be a \code{data.frame}, otherwise a \code{list} will be returned.
+#'  }
+#'  \item{\code{downloadFiles(path, parallel, parallel_handler, cl, ...)}}{
+#'    Download files attached to the record. The \code{path} can be specified as target
+#'    download directory (by default it will be the current working directory).
+#'    
+#'    The argument \code{parallel} (default is \code{FALSE}) can be used to parallelize
+#'    the files download. If set to \code{TRUE}, files will be downloaded in parallel.
+#'    using the chosen \code{parallel_handler}, eg \code{mclapply} interface from \pkg{parallel} package. 
+#'    To use a different parallel handler (such as eg \code{parLapply} or \code{parSapply}), specify its function
+#'    in \code{parallel_handler} argument. For cluster-based parallel download, this is the 
+#'    way to proceed. In that case, the cluster should be created earlier by the user with 
+#'    \code{makeCluster} and passed as \code{cl} argument. After downloading all files, the cluster
+#'    will be stopped automatically. See examples in \code{download_zenodo} utility function.
+#'    
+#'    The logical argument \code{quiet} (default is \code{FALSE}) can be set to 
+#'    suppress informative messages (not warnings).
+#'    
+#'    Additional arguments inherited from \code{parallel::mclapply} or the custom \code{parallel_handler}
+#'    can be added (eg. \code{mc.cores} for \code{mclapply})
+#'    
+#'  }
 #' }
 #' 
 #' @author Emmanuel Blondel <emmanuel.blondel1@@gmail.com>
@@ -412,19 +439,24 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       locale <- Sys.getlocale("LC_TIME")
       Sys.setlocale("LC_TIME", "us_US")
       html <- xml2::read_html(self$links$latest_html)
-      html_versions <- html_nodes(html, "table")[3]
+      html_versions <- xml2::xml_find_all(html, ".//table")[3]
       versions <- data.frame(
-        date = as.Date(sapply(html_nodes(html_versions, "tr"), function(x){
-          html_date <- html_text(html_nodes(x, "small")[2])
+        date = as.Date(sapply(xml2::xml_find_all(html_versions, ".//tr"), function(x){
+          xml_version <- xml2::read_xml(as.character(x))
+          html_date <- xml2::xml_text(xml2::xml_find_all(xml_version, ".//small")[2])
           date <- as.Date(strptime(html_date, format="%b %d, %Y"))
           return(date)
         }), origin = "1970-01-01"),
-        version = sapply(html_nodes(html_versions, "tr"), function(x){
-          v <- html_text(html_nodes(x, "a")[1])
+        version = sapply(xml2::xml_find_all(html_versions, ".//tr"), function(x){
+          xml_version <- xml2::read_xml(as.character(x))
+          v <- xml2::xml_text(xml2::xml_find_all(xml_version, "//a")[1])
           v <- substr(v, 9, nchar(v)-1)
           return(v)
         }),
-        doi = sapply(html_nodes(html_versions, "tr"), function(x){html_text(html_nodes(x, "small")[1])}),
+        doi = sapply(xml2::xml_find_all(html_versions, ".//tr"), function(x){
+          xml_version <- xml2::read_xml(as.character(x))
+          xml2::xml_text(xml2::xml_find_all(xml_version, ".//small")[1])
+        }),
         stringsAsFactors = FALSE
       )
       versions <- versions[rev(row.names(versions)),]
@@ -519,8 +551,9 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     },
     
     #addCreator
-    addCreator = function(firstname, lastname, affiliation = NULL, orcid = NULL, gnd = NULL){
-      creator <- list(name = paste(lastname, firstname, sep=", "))
+    addCreator = function(firstname, lastname, name = paste(lastname, firstname, sep = ", "),
+                          affiliation = NULL, orcid = NULL, gnd = NULL){
+      creator <- list(name = name)
       if(!is.null(affiliation)) creator <- c(creator, affiliation = affiliation)
       if(!is.null(orcid)) creator <- c(creator, orcid = orcid)
       if(!is.null(gnd)) creator <- c(creator, gnd = gnd)
@@ -641,7 +674,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
                             "isPartOf", "hasPart", "compiles", "isCompiledBy", "isIdenticalTo",
                             "isAlternateIdentifier")
       if(!(relation %in% allowedRelations)){
-        stop(sprint("Relation '%s' incorrect. Use a value among the following [%s]", 
+        stop(sprintf("Relation '%s' incorrect. Use a value among the following [%s]", 
                     relation, paste(allowedRelations, collapse=",")))
       }
       added <- FALSE
@@ -799,7 +832,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       added <- FALSE
       zen <- ZenodoManager$new()
       if(is.null(self$metadata$communities)) self$metadata$communities <- list()
-      if(!(community %in% self$metadata$communities)){
+      if(!(community %in% sapply(self$metadata$communities, function(x){x$identifier}))){
         zen_community <- zen$getCommunityById(community)
         if(is.null(zen_community)){
           errorMsg <- sprintf("Community with id '%s' doesn't exist in Zenodo", community)
@@ -1035,7 +1068,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       )
       
       html <- xml2::read_html(metadata_export_url)
-      reference <- html_nodes(html, "pre")
+      reference <- xml2::xml_find_all(html, ".//pre")
       reference <- reference[1]
       reference <- gsub("<pre.*\">","",reference)
       reference <- gsub("</pre>","",reference)
@@ -1097,6 +1130,93 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     exportAsAllFormats = function(filename){
       formats <- c("BibTeX","CSL","DataCite","DublinCore","DCAT","JSON","JSON-LD","GeoJSON","MARCXML")
       invisible(lapply(formats, self$exportAs, filename))
+    },
+    
+    #listFiles
+    listFiles = function(pretty = TRUE){
+      if(!pretty) return(self$files)
+      outdf <- do.call("rbind", lapply(self$files, function(x){
+        return(
+          data.frame(
+            id = x$id,
+            checksum = x$checksum,
+            filename = x$filename,
+            download = x$links$download,
+            self = x$links$self,
+            stringsAsFactors = FALSE
+          )
+        )
+      }))
+      return(outdf)
+    },
+    
+    #downloadFiles
+    downloadFiles = function(path = ".", parallel = FALSE, parallel_handler = NULL, cl = NULL, quiet = FALSE, ...){
+      if(length(self$files)==0){
+        self$WARN(sprintf("No files to download for record '%s' (doi: '%s')",
+                          self$id, self$doi))
+      }else{
+        files_summary <- sprintf("Will download %s file%s from record '%s' (doi: '%s') - total size: %s",
+                                length(self$files), ifelse(length(self$files)>1,"s",""), self$id, self$doi, 
+                                human_filesize(sum(sapply(self$files, function(x){x$filesize}))))
+        
+        #download_file util
+        download_file <- function(file){
+          file$filename <- substring(file$filename, regexpr("/", file$filename)+1, nchar(file$filename))
+          if (!quiet) cat(sprintf("[zen4R][INFO] Downloading file '%s' - size: %s\n", 
+                            file$filename, human_filesize(file$filesize)))
+          target_file <-file.path(path, file$filename)
+          download.file(url = file$links$download, destfile = target_file, 
+                        quiet = quiet, mode = "wb")
+        }          
+        #check_integrity util
+        check_integrity <- function(file){
+          file$filename <- substring(file$filename, regexpr("/", file$filename)+1, nchar(file$filename))
+          target_file <-file.path(path, file$filename)
+          #check md5sum
+          target_file_md5sum <- tools::md5sum(target_file)
+          if(target_file_md5sum==file$checksum){
+            if (!quiet) cat(sprintf("[zen4R][INFO] File '%s': integrity verified (md5sum: %s)\n",
+                        file$filename, file$checksum))
+          }else{
+            warnMsg <- sprintf("[zen4R][WARN] Download issue: md5sum (%s) of file '%s' does not match Zenodo archive md5sum (%s)\n", 
+                               target_file_md5sum, tools::file_path_as_absolute(target_file), file$checksum)
+            cat(warnMsg)
+            warning(warnMsg)
+          }
+        }
+
+        
+        if(parallel){
+          if (!quiet) self$INFO("Download in parallel mode")
+          if (is.null(parallel_handler)) {
+            errMsg <- "No 'parallel_handler' specified"
+            self$ERROR(errMsg)
+            stop(errMsg)
+          }
+          if(!is.null(parallel_handler)){
+            if(!is.null(cl)){
+              if (!quiet) self$INFO("Using cluster-based parallel handler (cluster 'cl' argument specified)")
+              if (!quiet) self$INFO(files_summary)
+              invisible(parallel_handler(cl, self$files, download_file, ...))
+              try(stopCluster(cl))
+            }else{
+              if (!quiet) self$INFO("Using non cluster-based (no cluster 'cl' argument specified)")
+              if (!quiet) self$INFO(files_summary)
+              invisible(parallel_handler(self$files, download_file, ...))
+            }
+          }
+        }else{
+          if (!quiet) self$INFO("Download in sequential mode")
+          if (!quiet) self$INFO(files_summary) 
+          invisible(lapply(self$files, download_file))
+        }
+        if (!quiet) cat(sprintf("[zen4R][INFO] File%s downloaded at '%s'.\n",
+                                ifelse(length(self$files)>1,"s",""), tools::file_path_as_absolute(path)))
+        if (!quiet) self$INFO("Verifying file integrity...")
+        invisible(lapply(self$files, check_integrity))
+        if (!quiet) self$INFO("End of download")
+      }
     }
     
   )

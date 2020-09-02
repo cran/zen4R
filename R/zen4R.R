@@ -7,8 +7,11 @@
 #' @import methods
 #' @import httr
 #' @import jsonlite
-#' @import rvest
 #' @import xml2
+#' @import keyring
+#' @importFrom tools file_path_as_absolute
+#' @importFrom tools md5sum
+#' @importFrom parallel mclapply
 #' 
 #' @title Interface to 'Zenodo' REST API
 #' @description Provides an Interface to 'Zenodo' (<https://zenodo.org>) REST API, 
@@ -19,8 +22,8 @@
 #'  \tabular{ll}{
 #'    Package: \tab zen4R\cr
 #'    Type: \tab Package\cr
-#'    Version: \tab 0.3\cr
-#'    Date: \tab 2019-08-27\cr
+#'    Version: \tab 0.4\cr
+#'    Date: \tab 2020-09-02\cr
 #'    License: \tab MIT\cr
 #'    LazyLoad: \tab yes\cr
 #'  }

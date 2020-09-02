@@ -4,9 +4,8 @@
 \name{ZenodoManager}
 \alias{ZenodoManager}
 \title{ZenodoManager}
-\format{\code{\link{R6Class}} object.}
-\usage{
-ZenodoManager
+\format{
+\code{\link{R6Class}} object.
 }
 \value{
 Object of \code{\link{R6Class}} for modelling an ZenodoManager
@@ -21,11 +20,15 @@ Main user class to be used with \pkg{zen4R}
 
 \describe{
  \item{\code{new(url, token, logger)}}{
-   This method is used to instantiate an ZenodoManager. By default,
-   the url is set to "https://zenodo.org/api". The token is
-   mandatory in order to use Zenodo API. The logger can be either
-   NULL, "INFO" (with minimum logs), or "DEBUG" (for complete curl 
-   http calls logs)
+   This method is used to instantiate the \code{ZenodoManager}. By default,
+   the url is set to "https://zenodo.org/api". For tests, the Zenodo sandbox API 
+   URL can be used: https://sandbox.zenodo.org/api .
+   
+   The token is mandatory in order to use Zenodo API deposit actions. By default, 
+   \pkg{zen4R} will first try to get it from environment variable 'ZENODO_PAT'.
+   
+   The logger can be either NULL, "INFO" (with minimum logs), or "DEBUG" 
+   (for complete curl http calls logs)
  }
  \item{\code{getLicenses(pretty)}}{
    Get the list of licenses. By default the argument \code{pretty} is set to 
@@ -68,7 +71,7 @@ Main user class to be used with \pkg{zen4R}
    to get all versions of records as part of the depositions list. The argument \code{exact}
    specifies that an exact matching is wished, in which case paginated search will be
    disabled (only the first search page will be returned).
-   Examples of ElasticSearch queries for Zenodo can be found at \href{http://help.zenodo.org/guides/search/}{http://help.zenodo.org/guides/search/}.
+   Examples of ElasticSearch queries for Zenodo can be found at \href{https://help.zenodo.org/guides/search/}{https://help.zenodo.org/guides/search/}.
  }
  \item{\code{getDepositionByConceptDOI(conceptdoi)}}{
    Get a Zenodo deposition record by concept DOI (generic DOI common to all deposition record versions)
@@ -78,6 +81,9 @@ Main user class to be used with \pkg{zen4R}
  }
  \item{\code{getDepositionById(recid)}}{
    Get a Zenodo deposition record by its Zenodo specific record id.
+ }
+ \item{\code{getDepositionByConceptId(conceptrecid)}}{
+   Get a Zenodo deposition record by its Zenodo concept id.
  }
  \item{\code{depositRecord(record, publish)}}{
    A method to deposit/update a Zenodo record. The record should be an object
@@ -101,7 +107,7 @@ Main user class to be used with \pkg{zen4R}
    Deletes all Zenodo deposited (unpublished) records. The parameter \code{q} allows 
    to specify an ElasticSearch-compliant query to filter depositions (default query 
    is empty to retrieve all records). Examples of ElasticSearch queries for Zenodo 
-   can be found at \href{http://help.zenodo.org/guides/search/}{http://help.zenodo.org/guides/search/}. 
+   can be found at \href{https://help.zenodo.org/guides/search/}{https://help.zenodo.org/guides/search/}. 
  }
  \item{\code{createEmptyRecord()}}{
    Creates an empty record in the Zenodo deposit. Returns the record
@@ -136,7 +142,7 @@ Main user class to be used with \pkg{zen4R}
     The argument \code{exact} specifies that an exact matching is wished, in which case 
     paginated search will be disabled (only the first search page will be returned).
     Examples of 
-   ElasticSearch queries for Zenodo can be found at \href{http://help.zenodo.org/guides/search/}{http://help.zenodo.org/guides/search/}.
+   ElasticSearch queries for Zenodo can be found at \href{https://help.zenodo.org/guides/search/}{https://help.zenodo.org/guides/search/}.
  }
  \item{\code{getRecordByConceptDOI(conceptdoi)}}{
    Get a Zenodo published record by concept DOI (generic DOI common to all record versions)
@@ -146,6 +152,9 @@ Main user class to be used with \pkg{zen4R}
  }
  \item{\code{getRecordById(recid)}}{
    Get a Zenodo published record by its Zenodo specific record id.
+ }
+ \item{\code{getRecordByConceptId(conceptrecid)}}{
+   Get a Zenodo published record by its Zenodo concept id.
  }
 }
 }
