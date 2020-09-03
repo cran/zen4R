@@ -30,6 +30,9 @@ Main user class to be used with \pkg{zen4R}
    The logger can be either NULL, "INFO" (with minimum logs), or "DEBUG" 
    (for complete curl http calls logs)
  }
+ \item{\code{getToken()}}{
+   Get Zenodo user token.
+ }
  \item{\code{getLicenses(pretty)}}{
    Get the list of licenses. By default the argument \code{pretty} is set to 
    \code{TRUE} which will returns the list of licenses as \code{data.frame}.
@@ -62,7 +65,7 @@ Main user class to be used with \pkg{zen4R}
  \item{\code{getFunderById(id)}}{
    Get funder by Id
  }
- \item{\code{getDepositions(q, size, all_versions, exact)}}{
+ \item{\code{getDepositions(q, size, all_versions, exact, quiet)}}{
    Get the list of Zenodo records deposited in your Zenodo workspace. By defaut
    the list of depositions will be returned by page with a size of 10 results per
    page (default size of the Zenodo API). The parameter \code{q} allows to specify
