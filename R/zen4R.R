@@ -11,7 +11,6 @@
 #' @import keyring
 #' @importFrom tools file_path_as_absolute
 #' @importFrom tools md5sum
-#' @importFrom parallel mclapply
 #' 
 #' @title Interface to 'Zenodo' REST API
 #' @description Provides an Interface to 'Zenodo' (<https://zenodo.org>) REST API, 
@@ -22,8 +21,8 @@
 #'  \tabular{ll}{
 #'    Package: \tab zen4R\cr
 #'    Type: \tab Package\cr
-#'    Version: \tab 0.4-1\cr
-#'    Date: \tab 2020-09-03\cr
+#'    Version: \tab 0.4-2\cr
+#'    Date: \tab 2020-09-04\cr
 #'    License: \tab MIT\cr
 #'    LazyLoad: \tab yes\cr
 #'  }

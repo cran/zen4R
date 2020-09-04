@@ -1,3 +1,11 @@
+## **_0.4-2_**
+
+**Improvements**
+
+* [#42](https://github.com/eblondel/zen4R/issues/42) Use parallel package as suggests
+* [#45](https://github.com/eblondel/zen4R/issues/45) Make ZenodoManager anonymous (token-less) calls keyring-free
+* [#46](https://github.com/eblondel/zen4R/issues/46) Upgrade record getVersions to fit Zenodo html changes
+
 ## **_0.4-1_**
 
 **Improvements**
