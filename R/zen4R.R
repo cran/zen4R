@@ -14,15 +14,15 @@
 #' 
 #' @title Interface to 'Zenodo' REST API
 #' @description Provides an Interface to 'Zenodo' (<https://zenodo.org>) REST API, 
-#'   including management of depositions, attribution of DOIs by 'Zenodo' and 
-#'   upload of files.
+#'   including management of depositions, attribution of DOIs by 'Zenodo', 
+#'   upload and download of files.
 #'
 #' @details
 #'  \tabular{ll}{
 #'    Package: \tab zen4R\cr
 #'    Type: \tab Package\cr
-#'    Version: \tab 0.4-2\cr
-#'    Date: \tab 2020-09-04\cr
+#'    Version: \tab 0.5\cr
+#'    Date: \tab 2021-09-14\cr
 #'    License: \tab MIT\cr
 #'    LazyLoad: \tab yes\cr
 #'  }

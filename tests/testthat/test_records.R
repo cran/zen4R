@@ -23,7 +23,7 @@ test_that("create and deposit record",{
   myrec$setUploadType("publication")
   myrec$setPublicationType("article")
   myrec$addCreator(firstname = "John", lastname = "Doe", affiliation = "Independent")
-  myrec$setLicense("mit")
+  myrec$setLicense("MIT")
   expect_true(myrec$addCommunity("ecfunded"))
   expect_false(myrec$addCommunity("ecfunded"))
   myrec$setKeywords(c("R","package","software"))
@@ -64,7 +64,9 @@ test_that("create and deposit record",{
   expect_is(deposit, "ZenodoRecord")
   
   #add files
-  ZENODO$uploadFile("README.md", deposit$id)
+  writeLines("This is a dummy file for testing zen4R", "README.md")
+  ZENODO$uploadFile("README.md", record = deposit)
+  unlink("README.md")
   
   #delete record
   deleted <- ZENODO$deleteRecord(deposit$id)
@@ -101,7 +103,9 @@ test_that("create, deposit and publish record",{
   expect_is(deposit, "ZenodoRecord")
   
   #add files
-  ZENODO$uploadFile("README.md", deposit$id)
+  writeLines("This is a dummy file for testing zen4R", "README.md")
+  ZENODO$uploadFile("README.md", record = deposit)
+  unlink("README.md")
   
   #publish record
   deposit <- ZENODO$publishRecord(deposit$id)
@@ -115,14 +119,12 @@ test_that("get by concept DOI",{
   rec <- ZENODO$getDepositionByConceptDOI("10.5072/zenodo.523362")
   expect_is(rec, "ZenodoRecord")
   expect_equal(rec$conceptdoi, "10.5072/zenodo.523362")
-  expect_equal(rec$metadata$title, sprintf("My publication title - 2020-04-14 21:53:08"))
 })
 
 test_that("get by record DOI",{
   rec <- ZENODO$getDepositionByDOI("10.5072/zenodo.523363")
   expect_is(rec, "ZenodoRecord")
   expect_equal(rec$conceptdoi, "10.5072/zenodo.523362")
-  expect_equal(rec$metadata$title, "My publication title - 2020-04-14 21:53:08")
 })
 
 test_that("list & downloading files",{
@@ -142,6 +144,8 @@ test_that("list & downloading files",{
 })
 
 test_that("list & downloading files - using wrapper",{
+  zenodo <- ZenodoManager$new(logger = "INFO")
+  rec <- zenodo$getRecordByDOI("10.5281/zenodo.3378733")
   dir.create("download_zenodo")
   download_zenodo(path = "download_zenodo", "10.5281/zenodo.3378733")
   downloaded_files <- list.files("download_zenodo")
@@ -153,27 +157,26 @@ test_that("versioning",{
   rec <- ZENODO$getDepositionByConceptDOI("10.5072/zenodo.523362")
   rec$setTitle(paste("My publication title -", Sys.time()))
   rec$setPublicationDate(Sys.Date())
-  write.csv(data.frame(title = rec$metadata$title, stringsAsFactors = FALSE), row.names = FALSE, "publication.csv")
-  rec_version <- ZENODO$depositRecordVersion(rec, files = "publication.csv", publish = TRUE)
-  unlink("publication.csv")
+  publication_filename <- paste0("publication_", format(Sys.time(), "%Y%m%d%H%M%S"), ".csv")
+  write.csv(data.frame(title = rec$metadata$title, stringsAsFactors = FALSE), row.names = FALSE, publication_filename)
+  rec_version <- ZENODO$depositRecordVersion(rec, files = publication_filename, publish = TRUE)
+  unlink(publication_filename)
 })
 
 test_that("versions & DOIs",{
   rec <- ZENODO$getDepositionByConceptDOI("10.5072/zenodo.523362")
   expect_equal(rec$getConceptDOI(), "10.5072/zenodo.523362")
   expect_equal(rec$getFirstDOI(), "10.5072/zenodo.523363")
-  expect_equal(rec$getLastDOI(), "10.5072/zenodo.527226")
   versions <- rec$getVersions()
   expect_is(versions, "data.frame")
   
   rec <- ZENODO$getDepositionByDOI("10.5072/zenodo.523363")
-  expect_equal(rec$getFirstDOI(), "10.5072/zenodo.523363")
-  expect_equal(rec$getLastDOI(), "10.5072/zenodo.527226")
   expect_equal(rec$getConceptDOI(), "10.5072/zenodo.523362")
+  expect_equal(rec$getFirstDOI(), "10.5072/zenodo.523363")
   versions <- rec$getVersions()
   expect_is(versions, "data.frame")
   
-  rec <- ZENODO$getDepositionByDOI("10.5072/zenodo.527226")
+  rec <- ZENODO$getDepositionByDOI(rec$getLastDOI())
   expect_is(rec, "ZenodoRecord")
 })
 

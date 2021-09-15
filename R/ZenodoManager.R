@@ -6,13 +6,16 @@
 #' @format \code{\link{R6Class}} object.
 #' @section Methods:
 #' \describe{
-#'  \item{\code{new(url, token, logger)}}{
+#'  \item{\code{new(url, token, logger, keyring_backend)}}{
 #'    This method is used to instantiate the \code{ZenodoManager}. By default,
 #'    the url is set to "https://zenodo.org/api". For tests, the Zenodo sandbox API 
 #'    URL can be used: https://sandbox.zenodo.org/api .
 #'    
 #'    The token is mandatory in order to use Zenodo API deposit actions. By default, 
 #'    \pkg{zen4R} will first try to get it from environment variable 'ZENODO_PAT'.
+#'    
+#'    The \code{keyring_backend} can be set to use a different backend for storing 
+#'    the Zenodo token with \pkg{keyring} (Default value is 'env').
 #'    
 #'    The logger can be either NULL, "INFO" (with minimum logs), or "DEBUG" 
 #'    (for complete curl http calls logs)
@@ -117,7 +120,7 @@
 #'  \item{\code{getFiles(recordId)}}{
 #'    Get the list of uploaded files for a deposited record
 #'  }
-#'  \item{\code{uploadFile(path, recordId)}}{
+#'  \item{\code{uploadFile(path, record, recordId)}}{
 #'    Uploads a file for a given Zenodo deposited record
 #'  }
 #'  \item{\code{deleteFile(recordId, fileId)}}{
@@ -190,7 +193,7 @@
 #'   #HOW TO UPLOAD FILES to a deposit
 #'   
 #'   #upload a file
-#'   ZENODO$uploadFile("path/to/your/file", myrec$id)
+#'   ZENODO$uploadFile("path/to/your/file", record = myrec)
 #'   
 #'   #list files
 #'   zen_files <- ZENODO$getFiles(myrec$id)
@@ -206,11 +209,13 @@
 ZenodoManager <-  R6Class("ZenodoManager",
   inherit = zen4RLogger,
   private = list(
+    keyring_backend = NULL,
     keyring_service = NULL,
     url = "https://zenodo.org/api"
   ),
   public = list(
     #logger
+    anonymous = FALSE,
     verbose.info = FALSE,
     verbose.debug = FALSE,
     loggerType = NULL,
@@ -223,12 +228,19 @@ ZenodoManager <-  R6Class("ZenodoManager",
     WARN = function(text){self$logger("WARN", text)},
     ERROR = function(text){self$logger("ERROR", text)},
     
-    initialize = function(url = "https://zenodo.org/api", token = zenodo_pat(), logger = NULL){
+    initialize = function(url = "https://zenodo.org/api", token = zenodo_pat(), logger = NULL,
+                          keyring_backend = 'env'){
       super$initialize(logger = logger)
       private$url = url
       if(!is.null(token)) if(nzchar(token)){
+        if(!keyring_backend %in% names(keyring:::known_backends)){
+          errMsg <- sprintf("Backend '%s' is not a known keyring backend!", keyring_backend)
+          self$ERROR(errMsg)
+          stop(errMsg)
+        }
+        private$keyring_backend <- keyring:::known_backends[[keyring_backend]]$new()
         private$keyring_service = paste0("zen4R@", url)
-        keyring::key_set_with_value(private$keyring_service, username = "zen4R", password = token)
+        private$keyring_backend$set_with_value(private$keyring_service, username = "zen4R", password = token)
         deps <- self$getDepositions(size = 1, quiet = TRUE)
         if(!is.null(deps$status)) {
           if(deps$status == 401){
@@ -241,6 +253,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
         }
       }else{
         self$INFO("Successfully connected to Zenodo as anonymous user")
+        self$anonymous <- TRUE
       }
     },
     
@@ -248,7 +261,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
     getToken = function(){
       token <- NULL
       if(!is.null(private$keyring_service)){
-        token <- suppressWarnings(keyring::key_get(private$keyring_service, username = "zen4R"))
+        token <- suppressWarnings(private$keyring_backend$get(private$keyring_service, username = "zen4R"))
       }
       return(token)
     },
@@ -719,8 +732,9 @@ ZenodoManager <-  R6Class("ZenodoManager",
       if(zenReq$getStatus() %in% c(200,201)){
         out <- zenReq$getResponse()
         out_id <- unlist(strsplit(out$links$latest_draft,"depositions/"))[[2]]
-        out <- ZenodoRecord$new(obj = out)
+        out <-  ZENODO$getDepositionById(out_id)
         self$INFO(sprintf("Successful new version record created for concept DOI '%s'", record$getConceptDOI()))
+        record$id <- out$id
         record$metadata$doi <- NULL
         record$doi <- NULL
         record$prereserveDOI(TRUE)
@@ -734,7 +748,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
           self$INFO("Upload files to new version")
           for(f in files){
             self$INFO(sprintf("Upload file '%s' to new version", f))
-            self$uploadFile(f, out$id)
+            self$uploadFile(f, record = out)
           }
         }
         
@@ -872,10 +886,24 @@ ZenodoManager <-  R6Class("ZenodoManager",
     },
     
     #uploadFile
-    uploadFile = function(path, recordId){
+    uploadFile = function(path, record = NULL, recordId = NULL){
+      newapi = TRUE
+      if(!is.null(recordId)){
+        self$WARN("'recordId' argument is deprecated, please consider using 'record' argument giving an object of class 'ZenodoRecord'")
+        self$WARN("'recordId' is used, cannot determine new API record bucket, switch to old upload API...")
+        newapi <- FALSE
+      }
+      if(!is.null(record)) recordId <- record$id
       fileparts <- strsplit(path,"/")
       filename <- unlist(fileparts)[length(fileparts)]
-      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("deposit/depositions/%s/files", recordId), 
+      method <- ifelse(newapi, "PUT", "POST")
+      if(!"bucket" %in% names(record$links)){
+        self$WARN(sprintf("No bucket link for record id = %s. Revert to old file upload API", recordId))
+        newapi <- FALSE
+      }
+      if(newapi) self$INFO(sprintf("Using new file upload API with bucket: %s", record$links$bucket))
+      method_url <- ifelse(newapi, sprintf("%s/%s", unlist(strsplit(record$links$bucket, "api/"))[2], filename), sprintf("deposit/depositions/%s/files", recordId))
+      zenReq <- ZenodoRequest$new(private$url, method, method_url, 
                                   data = filename, file = upload_file(path),
                                   token = self$getToken(),
                                   logger = self$loggerType)

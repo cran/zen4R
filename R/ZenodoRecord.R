@@ -125,7 +125,7 @@
 #'    Get DOI of the latest record version.
 #'  }
 #'  \item{\code{getVersions()}}{
-#'    Get a \code{data.frame} listing record versions with publication date and DOI.
+#'    Get a \code{data.frame} listing record versions with creation/publication date, version (ordering number) and DOI.
 #'  }
 #'  \item{\code{setVersion(version)}}{
 #'    Set the version.
@@ -327,9 +327,12 @@
 #'    List files attached to the record. By default \code{pretty} is TRUE and the output
 #'    will be a \code{data.frame}, otherwise a \code{list} will be returned.
 #'  }
-#'  \item{\code{downloadFiles(path, parallel, parallel_handler, cl, ...)}}{
+#'  \item{\code{downloadFiles(path, files, parallel, parallel_handler, cl, ...)}}{
 #'    Download files attached to the record. The \code{path} can be specified as target
-#'    download directory (by default it will be the current working directory).
+#'    download directory (by default it will be the current working directory). 
+#'    
+#'    Download can be restrained to one more file which names can be provided as vector 
+#'    using the \code{files} argument. By default, all files are downloaded.
 #'    
 #'    The argument \code{parallel} (default is \code{FALSE}) can be used to parallelize
 #'    the files download. If set to \code{TRUE}, files will be downloaded in parallel.
@@ -370,6 +373,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       self$state = obj$state
       self$submitted = obj$submitted
       self$title = obj$title
+      self$version = obj$version
     }
   ),
   public = list(
@@ -388,6 +392,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     state = NULL,
     submitted = FALSE,
     title = NULL,
+    version = NULL,
     
     initialize = function(obj = NULL, logger = "INFO"){
       super$initialize(logger = logger)
@@ -438,32 +443,26 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     getVersions = function(){
       locale <- Sys.getlocale("LC_TIME")
       Sys.setlocale("LC_TIME", "us_US")
-      html <- xml2::read_html(self$links$latest_html)
-      html_versions <- xml2::xml_find_all(html, ".//table")[3]
-      elems <- xml2::xml_find_all(html_versions, ".//tr")
-      elems <- elems[sapply(elems, function(x){regexpr("concept", x)<0})]
-      versions <- data.frame(
-        date = as.Date(sapply(elems, function(x){
-          xml_version <- xml2::read_xml(as.character(x))
-          html_date <- xml2::xml_text(xml2::xml_find_all(xml_version, ".//small")[2])
-          date <- as.Date(strptime(html_date, format="%b %d, %Y"))
-          return(date)
-        }), origin = "1970-01-01"),
-        version = sapply(elems, function(x){
-          xml_version <- xml2::read_xml(as.character(x))
-          v <- xml2::xml_text(xml2::xml_find_all(xml_version, "//a")[1])
-          v <- substr(v, 9, nchar(v)-1)
-          return(v)
-        }),
-        doi = sapply(elems, function(x){
-          xml_version <- xml2::read_xml(as.character(x))
-          xml2::xml_text(xml2::xml_find_all(xml_version, ".//small")[1])
-        }),
-        stringsAsFactors = FALSE
-      )
-      versions <- versions[rev(row.names(versions)),]
+      
+      zenodo_url <- paste0(unlist(strsplit(self$links$latest_html, "/record"))[1],"/api")
+      zenodo <- ZenodoManager$new(url = zenodo_url, logger = "INFO")
+      
+      records <- zenodo$getRecords(q = sprintf("conceptrecid:%s", self$conceptrecid), all_versions = T)
+      
+      versions <- do.call("rbind", lapply(records, function(version){
+        return(data.frame(
+          created = as.POSIXct(version$created, format = "%Y-%m-%dT%H:%M:%OS"),
+          date = as.Date(version$metadata$publication_date),
+          version = 0L,
+          doi = version$doi,
+          stringsAsFactors = FALSE
+        ))
+      }))
+      versions <- versions[order(versions$created),]
       row.names(versions) <- 1:nrow(versions)
+      versions$version <- 1:nrow(versions)
       Sys.setlocale("LC_TIME", locale)
+      
       return(versions)
     },
     
@@ -681,8 +680,13 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       }
       added <- FALSE
       if(is.null(self$metadata$related_identifiers)) self$metadata$related_identifiers <- list()
-      if(!(relation %in% sapply(self$metadata$related_identifiers, function(x){x$relation})) &
-         !(identifier %in% sapply(self$metadata$related_identifiers, function(x){x$identifier}))){
+      ids_df <- data.frame(relation = character(0), identifier = character(0), stringsAsFactors = FALSE)
+      if(length(self$metadata$related_identifiers)>0){
+        ids_df <- do.call("rbind", lapply(self$metadata$related_identifiers, function(x){
+          data.frame(relation = x$relation, identifier = x$identifier, stringsAsFactors = FALSE)
+        }))
+      }
+      if(nrow(ids_df[ids_df$relation == relation & ids_df$identifier == identifier,])==0){
         self$metadata$related_identifiers[[length(self$metadata$related_identifiers)+1]] <- list(
           relation = relation,
           identifier = identifier
@@ -1153,14 +1157,30 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     },
     
     #downloadFiles
-    downloadFiles = function(path = ".", parallel = FALSE, parallel_handler = NULL, cl = NULL, quiet = FALSE, ...){
+    downloadFiles = function(path = ".", files = list(),
+                             parallel = FALSE, parallel_handler = NULL, cl = NULL, quiet = FALSE, ...){
       if(length(self$files)==0){
         self$WARN(sprintf("No files to download for record '%s' (doi: '%s')",
                           self$id, self$doi))
       }else{
+        files.list <- self$files
+        if(length(files)>0) files.list <- files.list[sapply(files.list, function(x){x$filename %in% files})]
+        if(length(files.list)==0){
+          errMsg <- sprintf("No files available in record '%s' (doi: '%s') for file names [%s]",
+                            self$id, self$doi, paste0(files, collapse=","))
+          self$ERROR(errMsg)
+          stop(errMsg)
+        }
+        for(file in files){
+          if(!file %in% sapply(files.list, function(x){x$filename})){
+            self$WARN(sprintf("No files available in record '%s' (doi: '%s') for file name '%s': ",
+                              self$id, self$doi, file))
+          }
+        }
+        
         files_summary <- sprintf("Will download %s file%s from record '%s' (doi: '%s') - total size: %s",
-                                length(self$files), ifelse(length(self$files)>1,"s",""), self$id, self$doi, 
-                                human_filesize(sum(sapply(self$files, function(x){x$filesize}))))
+                                length(files.list), ifelse(length(files.list)>1,"s",""), self$id, self$doi, 
+                                human_filesize(sum(sapply(files.list, function(x){x$filesize}))))
         
         #download_file util
         download_file <- function(file){
@@ -1187,7 +1207,6 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
             warning(warnMsg)
           }
         }
-
         
         if(parallel){
           if (!quiet) self$INFO("Download in parallel mode")
@@ -1205,23 +1224,23 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
               }
               if (!quiet) self$INFO("Using cluster-based parallel handler (cluster 'cl' argument specified)")
               if (!quiet) self$INFO(files_summary)
-              invisible(parallel_handler(cl, self$files, download_file, ...))
+              invisible(parallel_handler(cl, files.list, download_file, ...))
               try(parallel::stopCluster(cl))
             }else{
               if (!quiet) self$INFO("Using non cluster-based (no cluster 'cl' argument specified)")
               if (!quiet) self$INFO(files_summary)
-              invisible(parallel_handler(self$files, download_file, ...))
+              invisible(parallel_handler(files.list, download_file, ...))
             }
           }
         }else{
           if (!quiet) self$INFO("Download in sequential mode")
           if (!quiet) self$INFO(files_summary) 
-          invisible(lapply(self$files, download_file))
+          invisible(lapply(files.list, download_file))
         }
         if (!quiet) cat(sprintf("[zen4R][INFO] File%s downloaded at '%s'.\n",
-                                ifelse(length(self$files)>1,"s",""), tools::file_path_as_absolute(path)))
+                                ifelse(length(files.list)>1,"s",""), tools::file_path_as_absolute(path)))
         if (!quiet) self$INFO("Verifying file integrity...")
-        invisible(lapply(self$files, check_integrity))
+        invisible(lapply(files.list, check_integrity))
         if (!quiet) self$INFO("End of download")
       }
     }
