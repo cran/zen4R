@@ -594,11 +594,14 @@ ZenodoManager <-  R6Class("ZenodoManager",
       query <- sprintf("conceptdoi:%s", gsub("/", "//", conceptdoi))
       result <- self$getDepositions(q = query, exact = TRUE)
       if(length(result)>0){
-        result <- result[[1]]
-        if(result$conceptdoi == conceptdoi){
-          self$INFO(sprintf("Successfully fetched record for concept DOI '%s'!", conceptdoi))
-        }else{
+        conceptdois <- vapply(result, function(i){
+          i$getConceptDOI()
+        }, character(1))
+        if (!conceptdoi %in% conceptdois){
           result <- NULL
+        }else{
+          result <- result[[which(conceptdois == conceptdoi)[1]]]
+          self$INFO(sprintf("Successfully fetched record for concept DOI '%s'!", conceptdoi))
         }
       }else{
         result <- NULL
@@ -611,6 +614,13 @@ ZenodoManager <-  R6Class("ZenodoManager",
           self$INFO(sprintf("Try to get deposition by Zenodo specific record id '%s'", conceptrecid))
           conceptrec <- self$getDepositionByConceptId(conceptrecid)
           last_doi <- tail(conceptrec$getVersions(),1L)$doi
+          if(length(last_doi)==0) {
+            if(nzchar(conceptrec$metadata$doi)){
+               last_doi = conceptrec$metadata$doi
+            }else{
+              last_doi = conceptrec$metadata$prereserve_doi$doi
+            }
+          }
           result <- self$getDepositionByDOI(last_doi)
         }
       }
@@ -732,7 +742,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
       if(zenReq$getStatus() %in% c(200,201)){
         out <- zenReq$getResponse()
         out_id <- unlist(strsplit(out$links$latest_draft,"depositions/"))[[2]]
-        out <-  ZENODO$getDepositionById(out_id)
+        out <-  self$getDepositionById(out_id)
         self$INFO(sprintf("Successful new version record created for concept DOI '%s'", record$getConceptDOI()))
         record$id <- out$id
         record$metadata$doi <- NULL
@@ -896,13 +906,13 @@ ZenodoManager <-  R6Class("ZenodoManager",
       if(!is.null(record)) recordId <- record$id
       fileparts <- strsplit(path,"/")
       filename <- unlist(fileparts)[length(fileparts)]
-      method <- ifelse(newapi, "PUT", "POST")
       if(!"bucket" %in% names(record$links)){
         self$WARN(sprintf("No bucket link for record id = %s. Revert to old file upload API", recordId))
         newapi <- FALSE
       }
+      method <- if(newapi) "PUT"  else "POST"
       if(newapi) self$INFO(sprintf("Using new file upload API with bucket: %s", record$links$bucket))
-      method_url <- ifelse(newapi, sprintf("%s/%s", unlist(strsplit(record$links$bucket, "api/"))[2], filename), sprintf("deposit/depositions/%s/files", recordId))
+      method_url <- if(newapi) sprintf("%s/%s", unlist(strsplit(record$links$bucket, "api/"))[2], filename) else sprintf("deposit/depositions/%s/files", recordId)
       zenReq <- ZenodoRequest$new(private$url, method, method_url, 
                                   data = filename, file = upload_file(path),
                                   token = self$getToken(),
