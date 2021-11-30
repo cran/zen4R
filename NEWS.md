@@ -1,4 +1,12 @@
 
+## **_0.5-2_**
+
+**Bug fixes**
+
+* [#62](https://github.com/eblondel/zen4R/issues/62) Fix new file upload API - wrong filename spliting
+* [#63](https://github.com/eblondel/zen4R/issues/63) Fix new file upload API - case with filename with spaces
+* [#64](https://github.com/eblondel/zen4R/issues/64) Fix new file upload API - actual file upload
+
 ## **_0.5-1_**
 
 **Bug fixes**

@@ -904,19 +904,30 @@ ZenodoManager <-  R6Class("ZenodoManager",
         newapi <- FALSE
       }
       if(!is.null(record)) recordId <- record$id
-      fileparts <- strsplit(path,"/")
-      filename <- unlist(fileparts)[length(fileparts)]
+      fileparts <- unlist(strsplit(path,"/"))
+      filename <- fileparts[length(fileparts)]
       if(!"bucket" %in% names(record$links)){
         self$WARN(sprintf("No bucket link for record id = %s. Revert to old file upload API", recordId))
         newapi <- FALSE
       }
       method <- if(newapi) "PUT"  else "POST"
       if(newapi) self$INFO(sprintf("Using new file upload API with bucket: %s", record$links$bucket))
-      method_url <- if(newapi) sprintf("%s/%s", unlist(strsplit(record$links$bucket, "api/"))[2], filename) else sprintf("deposit/depositions/%s/files", recordId)
-      zenReq <- ZenodoRequest$new(private$url, method, method_url, 
-                                  data = filename, file = upload_file(path),
-                                  token = self$getToken(),
-                                  logger = self$loggerType)
+      method_url <- if(newapi) sprintf("%s/%s", unlist(strsplit(record$links$bucket, "api/"))[2], URLencode(filename)) else sprintf("deposit/depositions/%s/files", recordId)
+      zenReq <- if(newapi){
+        ZenodoRequest$new(
+          private$url, method, method_url, 
+          data = upload_file(path),
+          token = self$getToken(),
+          logger = self$loggerType
+        )
+      }else{
+        ZenodoRequest$new(
+          private$url, method, method_url, 
+          data = filename, file = upload_file(path),
+          token = self$getToken(),
+          logger = self$loggerType
+        )
+      }
       zenReq$execute()
       out <- NULL
       if(zenReq$getStatus() == 201){
