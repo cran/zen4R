@@ -152,6 +152,8 @@ Emmanuel Blondel <emmanuel.blondel1@gmail.com>
 \item \href{#method-exportAsAllFormats}{\code{ZenodoRecord$exportAsAllFormats()}}
 \item \href{#method-listFiles}{\code{ZenodoRecord$listFiles()}}
 \item \href{#method-downloadFiles}{\code{ZenodoRecord$downloadFiles()}}
+\item \href{#method-print}{\code{ZenodoRecord$print()}}
+\item \href{#method-toDCEntry}{\code{ZenodoRecord$toDCEntry()}}
 \item \href{#method-clone}{\code{ZenodoRecord$clone()}}
 }
 }
@@ -1586,7 +1588,7 @@ Removes a thesis supervisor by GND
 \subsection{Method \code{exportAs()}}{
 Exports record to a file by format.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$exportAs(format, filename)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$exportAs(format, filename, append_format = TRUE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -1596,8 +1598,14 @@ Exports record to a file by format.
 JSON, JSON-LD, GeoJSON, MARCXML}
 
 \item{\code{filename}}{the target filename (without extension)}
+
+\item{\code{append_format}}{wether format name has to be appended to the filename. Default is \code{TRUE} (for
+backward compatibility reasons). Set it to \code{FALSE} if you want to use only the \code{filename}.}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+the writen file name (with extension)
 }
 }
 \if{html}{\out{<hr>}}
@@ -1616,6 +1624,9 @@ Exports record as BibTeX
 }
 \if{html}{\out{</div>}}
 }
+\subsection{Returns}{
+the writen file name (with extension)
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-exportAsCSL"></a>}}
@@ -1632,6 +1643,9 @@ Exports record as CSL
 \item{\code{filename}}{the target filename (without extension)}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+the writen file name (with extension)
 }
 }
 \if{html}{\out{<hr>}}
@@ -1650,6 +1664,9 @@ Exports record as DataCite
 }
 \if{html}{\out{</div>}}
 }
+\subsection{Returns}{
+the writen file name (with extension)
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-exportAsDublinCore"></a>}}
@@ -1666,6 +1683,9 @@ Exports record as DublinCore
 \item{\code{filename}}{the target filename (without extension)}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+the writen file name (with extension)
 }
 }
 \if{html}{\out{<hr>}}
@@ -1684,6 +1704,9 @@ Exports record as DCAT
 }
 \if{html}{\out{</div>}}
 }
+\subsection{Returns}{
+the writen file name (with extension)
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-exportAsJSON"></a>}}
@@ -1700,6 +1723,9 @@ Exports record as JSON
 \item{\code{filename}}{the target filename (without extension)}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+the writen file name (with extension)
 }
 }
 \if{html}{\out{<hr>}}
@@ -1735,6 +1761,9 @@ Exports record as GeoJSON
 }
 \if{html}{\out{</div>}}
 }
+\subsection{Returns}{
+the writen file name (with extension)
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-exportAsMARCXML"></a>}}
@@ -1751,6 +1780,9 @@ Exports record as MARCXML
 \item{\code{filename}}{the target filename (without extension)}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+the writen file name (with extension)
 }
 }
 \if{html}{\out{<hr>}}
@@ -1831,6 +1863,43 @@ and passed as \code{cl} argument. After downloading all files, the cluster will 
 can be added (eg. \code{mc.cores} for \code{mclapply})}
 }
 \if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-print"></a>}}
+\if{latex}{\out{\hypertarget{method-print}{}}}
+\subsection{Method \code{print()}}{
+Prints a \link{ZenodoRecord}
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$print(..., format = "internal", depth = 1)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{any other parameter. Not used}
+
+\item{\code{format}}{format to use for printing. By default, \code{internal} uses an \pkg{zen4R} internal
+printing method. Other methods available are those supported by Zenodo for record export, and can be used 
+only if the record has already been published (with a DOI). Attemps to print using a Zenodo export format
+for a record will raise a warning message and revert to "internal" format}
+
+\item{\code{depth}}{an internal depth parameter for indentation of print statements, in case of listing or recursive use of print}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-toDCEntry"></a>}}
+\if{latex}{\out{\hypertarget{method-toDCEntry}{}}}
+\subsection{Method \code{toDCEntry()}}{
+Maps to an \pkg{atom4R} \link{DCEntry}. Note: applies only to published records.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$toDCEntry()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+an object of class \code{DCEntry}
 }
 }
 \if{html}{\out{<hr>}}

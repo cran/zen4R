@@ -66,6 +66,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
     keyring_backend = NULL,
     keyring_service = NULL,
     url = "https://zenodo.org/api",
+    sandbox = FALSE,
     verbose.info = FALSE
   ),
   public = list(
@@ -85,6 +86,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
                           keyring_backend = 'env'){
       super$initialize(logger = logger)
       private$url = url
+      if(url == "https://sandbox.zenodo.org/api") private$sandbox = TRUE
       if(!is.null(token)) if(nzchar(token)){
         if(!keyring_backend %in% names(keyring:::known_backends)){
           errMsg <- sprintf("Backend '%s' is not a known keyring backend!", keyring_backend)
@@ -129,7 +131,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #'    Set \code{pretty = FALSE} to get the raw list of licenses.
     #' @return list of licenses as \code{data.frame} or \code{list}
     getLicenses = function(pretty = TRUE){
-      zenReq <- ZenodoRequest$new(private$url, "GET", "licenses?q=&size=1000",
+      zenReq <- ZenodoRequest$new(private$url, "GET", "licenses/?q=&size=1000",
                                   token= self$getToken(), 
                                   logger = self$loggerType)
       zenReq$execute()
@@ -181,7 +183,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #'    Set \code{pretty = FALSE} to get the raw list of communities
     #' @return list of communities as \code{data.frame} or \code{list}
     getCommunities = function(pretty = TRUE){
-      zenReq <- ZenodoRequest$new(private$url, "GET", "communities?q=&size=10000",
+      zenReq <- ZenodoRequest$new(private$url, "GET", "communities/?q=&size=10000",
                                   token= self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
@@ -241,7 +243,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
       
       page <- 1
       lastPage <- FALSE
-      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants?size=%s&page=%s", size, page), 
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants/?size=%s&page=%s", size, page), 
                                   token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
@@ -258,7 +260,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
           }else{
             lastPage <- TRUE
           }
-          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants?size=%s&page=%s", size, page), 
+          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants/?size=%s&page=%s", size, page), 
                                       token = self$getToken(),
                                       logger = self$loggerType)
           zenReq$execute()
@@ -343,7 +345,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
       
       page <- 1
       lastPage <- FALSE
-      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders?size=%s&page=%s", size, page), 
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders/?size=%s&page=%s", size, page), 
                                   token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
@@ -360,7 +362,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
           }else{
             lastPage <- TRUE
           }
-          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders?size=%s&page=%s", size, page), 
+          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders/?size=%s&page=%s", size, page), 
                                       token = self$getToken(),
                                       logger = self$loggerType)
           zenReq$execute()
@@ -443,7 +445,9 @@ ZenodoManager <-  R6Class("ZenodoManager",
     getDepositions = function(q = "", size = 10, all_versions = FALSE, exact = TRUE,
                               quiet = FALSE){
       page <- 1
-      req <- sprintf("deposit/depositions?q=%s&size=%s&page=%s", q, size, page)
+      baseUrl <- "deposit/depositions"
+      if(!private$sandbox) baseUrl <- paste0(baseUrl, "/")
+      req <- sprintf("%s?q=%s&size=%s&page=%s", baseUrl, URLencode(q), size, page)
       if(all_versions) req <- paste0(req, "&all_versions=1")
       zenReq <- ZenodoRequest$new(private$url, "GET", req, 
                                   token = self$getToken(),
@@ -462,7 +466,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
           }else{
             #next
             page <- page+1
-            nextreq <- sprintf("deposit/depositions?q=%s&size=%s&page=%s", q, size, page)
+            nextreq <- sprintf("%s?q=%s&size=%s&page=%s", baseUrl, q, size, page)
             if(all_versions) nextreq <- paste0(nextreq, "&all_versions=1")
             zenReq <- ZenodoRequest$new(private$url, "GET", nextreq, 
                                         token = self$getToken(),
@@ -918,7 +922,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @return a list of \code{ZenodoRecord}
     getRecords = function(q = "", size = 10, all_versions = FALSE, exact = FALSE){
       page <- 1
-      req <- sprintf("records?q=%s&size=%s&page=%s", q, size, page)
+      req <- sprintf("records/?q=%s&size=%s&page=%s", URLencode(q), size, page)
       if(all_versions) req <- paste0(req, "&all_versions=1")
       zenReq <- ZenodoRequest$new(private$url, "GET", req, 
                                   token = self$getToken(),
@@ -937,7 +941,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
           }else{
             #next
             page <- page+1
-            nextreq <- sprintf("records?q=%s&size=%s&page=%s", q, size, page)
+            nextreq <- sprintf("records/?q=%s&size=%s&page=%s", URLencode(q), size, page)
             if(all_versions) nextreq <- paste0(nextreq, "&all_versions=1")
             zenReq <- ZenodoRequest$new(private$url, "GET", nextreq, 
                                         token = self$getToken(),
