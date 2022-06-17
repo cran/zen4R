@@ -1,5 +1,11 @@
+## [zen4R 0.6-1](https://cran.r-project.org/package=zen4R) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/package=zen4R)
 
-## [zen4R 0.6](https://github.com/eblondel/zen4R) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-unavailable-red.svg)](https://github.com/eblondel/zen4R)
+**Bug fixes**
+
+* [#76](https://github.com/eblondel/zen4R/issues/76) getDepositionByDOI() errors when Zenodo returns a 404 (due Zenodo reverting new path mentioned in #[#72](https://github.com/eblondel/zen4R/issues/72))
+
+
+## [zen4R 0.6](https://cran.r-project.org/package=zen4R) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/package=zen4R)
 
 **New features**
 
@@ -17,7 +23,8 @@
 * [#70](https://github.com/eblondel/zen4R/issues/70) Fix setEmbargoDate record method
 * [#74](https://github.com/eblondel/zen4R/issues/75) getRecords ElasticSearch query returns error if it includes spaces
 
-## [zen4R 0.5-3](https://cran.r-project.org/package=zen4R) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/package=zen4R)
+## [zen4R 0.5-3](https://cran.r-project.org/src/contrib/Archive/zen4R/zen4R_0.5-3.tar.gz) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/src/contrib/Archive/zen4R/zen4R_0.5-3.tar.gz)
+
 
 **Enhancements**
 

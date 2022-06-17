@@ -1,11 +1,11 @@
 [![Build Status](https://github.com/eblondel/zen4R/actions/workflows/r-cmd-check.yml/badge.svg?branch=master)](https://github.com/eblondel/zen4R/actions/workflows/r-cmd-check.yml)
 [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/zen4R)](https://cran.r-project.org/package=zen4R)
-[![Github_Status_Badge](https://img.shields.io/badge/Github-0.6-blue.svg)](https://github.com/eblondel/zen4R)
+[![Github_Status_Badge](https://img.shields.io/badge/Github-0.6--1-blue.svg)](https://github.com/eblondel/zen4R)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2547036.svg)](https://doi.org/10.5281/zenodo.2547036)
 
 **zen4R – R Interface to Zenodo REST API**
 
-The R package ``zen4R`` provides an interface to the [Zenodo e-infrastructure](https://zenodo.org) API.
+``zen4R`` provides an interface to the [Zenodo e-infrastructure](https://zenodo.org) API.
 
 Please check the [online documentation](https://github.com/eblondel/zen4R/wiki) for more details!
 
@@ -22,7 +22,7 @@ Many thanks to the following organizations that have provided fundings for stren
 
 The following projects have contributed to strenghten ``zen4R``:
 
-<a href="https://www.blue-cloud.org"><img height=100 width=300 src="https://www.blue-cloud.org/sites/all/themes/arcadia/logo.png"/></a>
+<a href="https://blue-cloud.org/"><img height=100 width=300 src="https://www.blue-cloud.org/sites/all/themes/arcadia/logo.png"/></a>
 
 _Blue-Cloud has received funding from the European Union's Horizon programme call BG-07-2019-2020, topic: [A] 2019 - Blue Cloud services, Grant Agreement No.862409._
 

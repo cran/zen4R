@@ -1,6 +1,6 @@
 Package: zen4R
-Version: 0.6
-Date: 2022-05-01
+Version: 0.6-1
+Date: 2022-06-17
 Title: Interface to 'Zenodo' REST API
 Authors@R: c(
   person("Emmanuel", "Blondel", role = c("aut", "cre"), email = "emmanuel.blondel1@gmail.com", comment = c(ORCID = "0000-0002-5870-5762")),
@@ -11,7 +11,7 @@ Authors@R: c(
 Maintainer: Emmanuel Blondel <emmanuel.blondel1@gmail.com>
 Depends: R (>= 3.3.0), methods
 Imports: R6, httr, jsonlite, XML, xml2, keyring, tools, atom4R
-Suggests: testthat, parallel
+Suggests: testthat, parallel, knitr, markdown
 Description: Provides an Interface to 'Zenodo' (<https://zenodo.org>) REST API, 
   including management of depositions, attribution of DOIs by 'Zenodo' and 
   upload and download of files.
@@ -21,12 +21,13 @@ BugReports: https://github.com/eblondel/zen4R/issues
 LazyLoad: yes
 RoxygenNote: 7.1.1
 Encoding: UTF-8
+VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2022-05-01 13:25:25 UTC; manub
+Packaged: 2022-06-17 08:48:11 UTC; manub
 Author: Emmanuel Blondel [aut, cre] (<https://orcid.org/0000-0002-5870-5762>),
   Julien Barde [ctb] (<https://orcid.org/0000-0002-3519-6141>),
   Stephen Eglen [ctb] (<https://orcid.org/0000-0001-8607-8025>),
   Hans Van Calster [ctb] (<https://orcid.org/0000-0001-8595-8426>),
   Floris Vanderhaeghe [ctb] (<https://orcid.org/0000-0002-6378-6229>)
 Repository: CRAN
-Date/Publication: 2022-05-01 13:50:02 UTC
+Date/Publication: 2022-06-17 11:10:02 UTC

@@ -1,8 +1,8 @@
-dfb60ce9f7ba53658fcec2b38647fbad *DESCRIPTION
+b59304c96552466824bc69346863add4 *DESCRIPTION
 9064ca66dd7a50412cb2b291ee531b32 *LICENSE
 02c95cebad317a14a628a273a44d1398 *NAMESPACE
-73c3d2bf5aede4f64d2a3f52ae75d2cb *NEWS.md
-b38bdff428fe3ae9914df30db049bf50 *R/ZenodoManager.R
+77abfdf4d7d8946bd0e1075c9e08a3a4 *NEWS.md
+6735067d8724a7c73d7e808677353270 *R/ZenodoManager.R
 a7aeb4aaadaeb6baffa8355c94c19df2 *R/ZenodoRecord.R
 3c2ce1e1674a2d257dfe061682fe0f14 *R/ZenodoRequest.R
 ba2c0223447a068369e5b706528bb3d9 *R/profile.R
@@ -12,7 +12,11 @@ baf5817d52c3e7a896fe6e19dbbba6dc *R/zen4R_downloader.R
 88da7fa63d173fb01353b484178ec44c *R/zen4R_logger.R
 b3897f87a27cfc2b61d1224bdd5ee1c5 *R/zen4R_pat.R
 99d616c4f0f4d31f1eae5aa89fd173f5 *R/zen4R_versioning.R
-05e0a32ba698943e37e251d3294a59a5 *README.md
+b0ba6808eaba257fc32a22489b8a4d2c *README.md
+6cb1dd92c37721b0dd1ea406762440a4 *build/vignette.rds
+1a91688cbbecb616039818b380a280e9 *inst/doc/zen4R.R
+da9df05384de2254e8e2d513424f4f9d *inst/doc/zen4R.Rmd
+e81faee0b131431adfb258332b3e3faf *inst/doc/zen4R.html
 0f6bea9554402f072b78105f3742b01a *man/ZenodoManager.Rd
 4289029c489743c5b29b5ce63332076e *man/ZenodoRecord.Rd
 b550ea6659905e95854597a62808c437 *man/ZenodoRequest.Rd
@@ -29,3 +33,4 @@ a4271a5c9c316ca39e1b7201f955bc59 *tests/testthat/test_communities.R
 108cd54d8d5500457a1b9f7861e8e4c7 *tests/testthat/test_grants.R
 4fd7b133dd11978650d5a5836f1708ae *tests/testthat/test_licenses.R
 c203b82a2967c63e1a1670b6dc5a8510 *tests/testthat/test_records.R
+da9df05384de2254e8e2d513424f4f9d *vignettes/zen4R.Rmd
