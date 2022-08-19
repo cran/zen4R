@@ -57,8 +57,8 @@ test_that("create and deposit record",{
   expect_true(myrec$addRelatedIdentifier("hasPart", "https://github.com/eblondel/zen4R/wiki#47-browse-zenodo-controlled-vocabularies"))
   expect_true(myrec$addRelatedIdentifier("hasPart", "https://github.com/eblondel/zen4R/wiki#48-query-zenodo-published-records"))
   expect_true(myrec$addRelatedIdentifier("hasPart", "https://github.com/eblondel/zen4R/wiki#49-download-files-from-zenodo-records"))
-  expect_true(myrec$addRelatedIdentifier("isPartOf", "https://github.com/eblondel/zen4R/wiki#user_guide"))
-  expect_false(myrec$addRelatedIdentifier("isPartOf", "https://github.com/eblondel/zen4R/wiki#user_guide"))
+  expect_true(myrec$addRelatedIdentifier("isPartOf", "https://github.com/eblondel/zen4R/wiki#user_guide", "book"))
+  expect_false(myrec$addRelatedIdentifier("isPartOf", "https://github.com/eblondel/zen4R/wiki#user_guide", "book"))
   for(i in 1:10){
     expect_true(myrec$addRelatedIdentifier("hasPart", paste("http://chapter", i)))
   }
@@ -74,6 +74,9 @@ test_that("create and deposit record",{
   expect_equal(myrec$metadata$creator[[1]]$name, "Doe, John")
   expect_equal(myrec$metadata$creator[[1]]$affiliation, "Independent")
   expect_true(myrec$metadata$prereserve_doi)
+  
+  #add locations
+  myrec$addLocation("Greenwich", description = "Well you know!", lon = -0.001545, lat = 51.477928)
   
   #deposit
   deposit = ZENODO$depositRecord(myrec)
@@ -197,6 +200,12 @@ test_that("mapping to atom4R",{
   expect_is(dcentry, "DCEntry")
   xml <- dcentry$encode()
   expect_is(xml, "XMLInternalNode")
+})
+
+test_that("get record by ID",{
+  zenodo <- ZenodoManager$new(logger = "INFO")
+  rec <- zenodo$getRecordByDOI("10.5281/zenodo.3378733")
+  expect_is(rec, "ZenodoRecord")
 })
 
 #test_that("versions & DOIs",{

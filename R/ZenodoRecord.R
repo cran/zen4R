@@ -10,6 +10,17 @@
 ZenodoRecord <-  R6Class("ZenodoRecord",
   inherit = zen4RLogger,
   private = list(
+    allowed_upload_types = c("publication","poster","presentation", "dataset","image","video","software", "lesson", "physicalobject", "other"),
+    allowed_publication_types = c("annotationcollection", "book","section","conferencepaper","datamanagementplan", "article","patent","preprint",
+                                  "deliverable", "milestone", "proposal", "report","softwaredocumentation", "taxonomictreatment", "technicalnote",
+                                  "thesis","workingpaper","other"),
+    allowed_image_types = c("figure","plot","drawing","diagram","photo","other"),
+    allowed_relations = c("isCitedBy", "cites", "isSupplementTo", "isSupplementedBy", "isContinuedBy", "continues", 
+                  "isDescribedBy", "describes", "hasMetadata", "isMetadataFor", "isNewVersionOf", "isPreviousVersionOf", 
+                  "isPartOf", "hasPart", "isReferencedBy", "references", "isDocumentedBy", "documents", "isCompiledBy", 
+                  "compiles", "isVariantFormOf", "isOriginalFormof", "isIdenticalTo", "isAlternateIdentifier", 
+                  "isReviewedBy", "reviews", "isDerivedFrom", "isSourceOf", "requires", "isRequiredBy", 
+                  "isObsoletedBy", "obsoletes"),
     export_formats = c("BibTeX","CSL","DataCite","DublinCore","DCAT","JSON","JSON-LD","GeoJSON","MARCXML"),
     getExportFormatExtension = function(format){
       switch(format,
@@ -175,14 +186,12 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     },
     
     #' @description Set the upload type (mandatory). 
-    #' @param uploadType record upload type among the following values: 'publication',
-    #'    'poster','presentation','dataset','image','video', or 'software'
+    #' @param uploadType record upload type among the following values: 'publication', 'poster', 
+    #'  'presentation', 'dataset', 'image', 'video', 'software', 'lesson', 'physicalobject', 'other'
     setUploadType = function(uploadType){
-      uploadTypeValues <- c("publication","poster","presentation",
-                            "dataset","image","video","software","other")
-      if(!(uploadType %in% uploadTypeValues)){
+      if(!(uploadType %in% private$allowed_upload_types)){
         errorMsg <- sprintf("The upload type should be among the values [%s]",
-                            paste(uploadTypeValues, collapse=","))
+                            paste(private$allowed_upload_types, collapse=","))
         self$ERROR(errorMsg)
         stop(errorMsg)
       }
@@ -191,16 +200,14 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     },
     
     #' @description Set the publication type (mandatory if upload type is 'publication').
-    #' @param publicationType record publication type among the following values: 'book','section',
-    #' 'conferencepaper','article','patent','preprint','report','softwaredocumentation','thesis',
-    #' 'technicalnote','workingpaper', or 'other'
+    #' @param publicationType record publication type among the following values: 'annotationcollection', 'book', 
+    #'   'section', 'conferencepaper', 'datamanagementplan', 'article', 'patent', 'preprint', 'deliverable', 'milestone', 
+    #'   'proposal', 'report', 'softwaredocumentation', 'taxonomictreatment', 'technicalnote', 'thesis', 'workingpaper', 
+    #'   'other'
     setPublicationType = function(publicationType){
-      publicationTypeValues <- c("book","section","conferencepaper","article",
-                                 "patent","preprint","report","softwaredocumentation",
-                                 "thesis","technicalnote","workingpaper","other")
-      if(!(publicationType %in% publicationTypeValues)){
+      if(!(publicationType %in% private$allowed_publication_types)){
         errorMsg <- sprintf("The publication type should be among the values [%s]",
-                            paste(publicationTypeValues, collapse=","))
+                            paste(private$allowed_publication_types, collapse=","))
         self$ERROR(errorMsg)
         stop(errorMsg)
       }
@@ -212,10 +219,9 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #' @param imageType record publication type among the following values: 'figure','plot',
     #' 'drawing','diagram','photo', or 'other'
     setImageType = function(imageType){
-      imageTypeValues = c("figure","plot","drawing","diagram","photo","other")
-      if(!(imageType %in% imageTypeValues)){
+      if(!(imageType %in% private$allowed_image_types)){
         errorMsg <- sprintf("The image type should be among the values [%s",
-                            paste(imageTypeValues, collapse=","))
+                            paste(private$allowed_image_types, collapse=","))
         self$ERROR(errorMsg)
         stop(errorMsg)
       }
@@ -442,18 +448,18 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     },
     
     #' @description Adds a related identifier with a given relation.
-    #' @param relation relation type among following values: isCitedBy, cites, isSupplementTo, 
-    #'   isSupplementedBy, isNewVersionOf, isPreviousVersionOf, isPartOf, hasPart, compiles, 
-    #'   isCompiledBy, isIdenticalTo, isAlternateIdentifier
+    #' @param relation relation type among following values: isCitedBy, cites, isSupplementTo, isSupplementedBy, 
+    #'  isContinuedBy, continues, isDescribedBy, describes, hasMetadata, isMetadataFor, isNewVersionOf, 
+    #'  isPreviousVersionOf, isPartOf, hasPart, isReferencedBy, references, isDocumentedBy, documents, 
+    #'  isCompiledBy, compiles, isVariantFormOf, isOriginalFormof, isIdenticalTo, isAlternateIdentifier, 
+    #'  isReviewedBy, reviews, isDerivedFrom, isSourceOf, requires, isRequiredBy, isObsoletedBy, obsoletes
     #' @param identifier resource identifier
-    addRelatedIdentifier = function(relation, identifier){
-      allowedRelations <- c("isCitedBy", "cites", "isSupplementTo",
-                            "isSupplementedBy", "isNewVersionOf", "isPreviousVersionOf", 
-                            "isPartOf", "hasPart", "compiles", "isCompiledBy", "isIdenticalTo",
-                            "isAlternateIdentifier")
-      if(!(relation %in% allowedRelations)){
+    #' @param resource_type optional resource type, value among possible publication types, image types, or upload 
+    #'  types (except 'publication' and 'image' for which a publication/image has to be specified). Default is \code{NULL}
+    addRelatedIdentifier = function(relation, identifier, resource_type = NULL){
+      if(!(relation %in% private$allowed_relations)){
         stop(sprintf("Relation '%s' incorrect. Use a value among the following [%s]", 
-                    relation, paste(allowedRelations, collapse=",")))
+                    relation, paste(private$allowed_relations, collapse=",")))
       }
       added <- FALSE
       if(is.null(self$metadata$related_identifiers)) self$metadata$related_identifiers <- list()
@@ -464,28 +470,37 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
         }))
       }
       if(nrow(ids_df[ids_df$relation == relation & ids_df$identifier == identifier,])==0){
-        self$metadata$related_identifiers[[length(self$metadata$related_identifiers)+1]] <- list(
-          relation = relation,
-          identifier = identifier
-        )
+        new_rel <- list(relation = relation, identifier = identifier)
+        if(!is.null(resource_type)) {
+          allowed_resource_types <- c(private$allowed_upload_types, private$allowed_publication_types, private$allowed_image_types)
+          allowed_resource_types <- allowed_resource_types[!(allowed_resource_types %in% c("publication", "image"))]
+          if(!(resource_type %in% allowed_resource_types)){
+            stop(sprintf("Relation resource type '%s' incorrect. Use a value among the following [%s]", 
+                         relation, paste(allowed_resource_types, collapse=",")))
+          }
+          resource_type_prefix <- ""
+          if(resource_type %in% private$allowed_publication_types)resource_type_prefix = "publication-"
+          if(resource_type %in% private$allowed_image_types)resource_type_prefix = "image-"
+          
+          new_rel$resource_type <- paste0(resource_type_prefix, resource_type)
+        } 
+        self$metadata$related_identifiers[[length(self$metadata$related_identifiers)+1]] <- new_rel
         added <- TRUE
       }
       return(added)
     },
     
     #' @description Removes a related identifier with a given relation.
-    #' @param relation relation type among following values: isCitedBy, cites, isSupplementTo, 
-    #'   isSupplementedBy, isNewVersionOf, isPreviousVersionOf, isPartOf, hasPart, compiles, 
-    #'   isCompiledBy, isIdenticalTo, isAlternateIdentifier
+    #' @param relation relation type among following values: isCitedBy, cites, isSupplementTo, isSupplementedBy, 
+    #'  isContinuedBy, continues, isDescribedBy, describes, hasMetadata, isMetadataFor, isNewVersionOf, 
+    #'  isPreviousVersionOf, isPartOf, hasPart, isReferencedBy, references, isDocumentedBy, documents, 
+    #'  isCompiledBy, compiles, isVariantFormOf, isOriginalFormof, isIdenticalTo, isAlternateIdentifier, 
+    #'  isReviewedBy, reviews, isDerivedFrom, isSourceOf, requires, isRequiredBy, isObsoletedBy, obsoletes
     #' @param identifier resource identifier
     removeRelatedIdentifier = function(relation, identifier){
-      allowedRelations <- c("isCitedBy", "cites", "isSupplementTo",
-                            "isSupplementedBy", "isNewVersionOf", "isPreviousVersionOf", 
-                            "isPartOf", "hasPart", "compiles", "isCompiledBy", "isIdenticalTo",
-                            "isAlternateIdentifier")
-      if(!(relation %in% allowedRelations)){
-        stop(sprint("Relation '%s' incorrect. Use a value among the following [%s]", 
-                    relation, paste(allowedRelations, collapse=",")))
+      if(!(relation %in% private$allowed_relations)){
+        stop(sprintf("Relation '%s' incorrect. Use a value among the following [%s]", 
+                     relation, paste(private$allowed_relations, collapse=",")))
       }
       removed <- FALSE
       if(!is.null(self$metadata$related_identifiers)){
@@ -891,6 +906,34 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #' @return \code{TRUE} if removed, \code{FALSE} otherwise
     removeThesisSupervisorByGND = function(gnd){
       return(self$removeThesisSupervisor(by = "gnd", gnd))
+    },
+    
+    #' @description Adds a location to the record metadata.
+    #' @param place place (required)
+    #' @param description description
+    #' @param lat latitude
+    #' @param lon longitude
+    addLocation = function(place, description = NULL, lat = NULL, lon = NULL){
+      if(is.null(self$metadata$locations)) self$metadata$locations <- list()
+      self$metadata$locations[[length(self$metadata$locations)+1]] <- list(place = place, description = description, lat = lat, lon = lon)
+    },
+    
+    #' @description Removes a grant from the record metadata. 
+    #' @param place place (required)
+    #' @return \code{TRUE} if removed, \code{FALSE} otherwise
+    removeLocation = function(place){
+      removed <- FALSE
+      if(!is.null(self$metadata$locations)){
+        for(i in 1:length(self$metadata$locations)){
+          loc <- self$metadata$locations[[i]]
+          if(loc$place == place){
+            self$metadata$locations[[i]] <- NULL
+            removed <- TRUE
+            break;
+          }
+        }
+      }
+      return(removed)
     },
     
     #' @description Exports record to a file by format.

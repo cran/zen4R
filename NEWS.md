@@ -1,3 +1,24 @@
+## [zen4R 0.7](https://cran.r-project.org/package=zen4R) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-notavailable-red.svg)](https://cran.r-project.org/package=zen4R)
+
+**Bug fixes**
+
+* [#84](https://github.com/eblondel/zen4R/issues/84) Error 500 with GET requests (Change in Zenodo server) -> Support `User-Agent` header
+
+**New features**
+
+* [#77](https://github.com/eblondel/zen4R/issues/77) Support `locations` metadata (not clear yet if actually supported by Zenodo UI)
+
+**Enhancements**
+
+* [#90](https://github.com/eblondel/zen4R/issues/90) Support optional `resource_type` for related identifiers
+* [#91](https://github.com/eblondel/zen4R/issues/91) Add missing relations (for related identifiers) supported by Zenodo API
+* [#92](https://github.com/eblondel/zen4R/issues/92) Add missing upload types supported by Zenodo API
+* [#93](https://github.com/eblondel/zen4R/issues/93) Add missing publication types supported by Zenodo API
+
+**Documentation**
+
+* [#97](https://github.com/eblondel/zen4R/issues/97) Upgrade roxygen2 7.2.1 to fix html issues
+
 ## [zen4R 0.6-1](https://cran.r-project.org/package=zen4R) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/package=zen4R)
 
 **Bug fixes**
@@ -5,7 +26,7 @@
 * [#76](https://github.com/eblondel/zen4R/issues/76) getDepositionByDOI() errors when Zenodo returns a 404 (due Zenodo reverting new path mentioned in #[#72](https://github.com/eblondel/zen4R/issues/72))
 
 
-## [zen4R 0.6](https://cran.r-project.org/package=zen4R) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/package=zen4R)
+## [zen4R 0.6](https://cran.r-project.org/src/contrib/Archive/zen4R/zen4R_0.6.tar.gz) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/src/contrib/Archive/zen4R/zen4R_0.6.tar.gz)
 
 **New features**
 

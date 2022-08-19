@@ -558,9 +558,9 @@ myrec &lt;- zenodo$depositRecordVersion(myrec, delete_latest_files = TRUE, files
 
 <h5>4.5.1 Upload file</h5>
 
-<p>With <code>zen4R</code>, it is very easy to upload a file to a record deposition. The record should first deposited on Zenodo. To upload a file, the following single line can be used, where the file <code>path</code> is specified and the record deposition <code>id</code> to which the file should be uploaded:</p>
+<p>With <code>zen4R</code>, it is very easy to upload a file to a record deposition. The record should first deposited on Zenodo. To upload a file, the following single line can be used, where the file <code>path</code> is specified and the record deposit to which the file should be uploaded:</p>
 
-<pre><code class="r">zenodo$uploadFile(&quot;path/to/your/file&quot;, myrec$id)
+<pre><code class="r">zenodo$uploadFile(&quot;path/to/your/file&quot;, record = myrec)
 </code></pre>
 
 <p><a name="ZenodoDepositFile-get"/></p>
