@@ -1,6 +1,6 @@
 Package: zen4R
-Version: 0.7
-Date: 2022-08-19
+Version: 0.7-1
+Date: 2023-01-09
 Title: Interface to 'Zenodo' REST API
 Authors@R: c(
   person("Emmanuel", "Blondel", role = c("aut", "cre"), email = "emmanuel.blondel1@gmail.com", comment = c(ORCID = "0000-0002-5870-5762")),
@@ -23,11 +23,11 @@ RoxygenNote: 7.2.1
 Encoding: UTF-8
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2022-08-19 07:31:33 UTC; manub
+Packaged: 2023-01-09 22:47:26 UTC; manub
 Author: Emmanuel Blondel [aut, cre] (<https://orcid.org/0000-0002-5870-5762>),
   Julien Barde [ctb] (<https://orcid.org/0000-0002-3519-6141>),
   Stephen Eglen [ctb] (<https://orcid.org/0000-0001-8607-8025>),
   Hans Van Calster [ctb] (<https://orcid.org/0000-0001-8595-8426>),
   Floris Vanderhaeghe [ctb] (<https://orcid.org/0000-0002-6378-6229>)
 Repository: CRAN
-Date/Publication: 2022-08-19 08:00:02 UTC
+Date/Publication: 2023-01-09 23:10:02 UTC

@@ -14,12 +14,6 @@ ZenodoRequest <- R6Class("ZenodoRequest",
   inherit = zen4RLogger,                    
   #private methods
   private = list(
-    agent = paste(
-      "Mozilla/5.0 (X11; Linux x86_64)",
-      "AppleWebKit/537.36 (KHTML, like Gecko)",
-      "Chrome/103.0.0.0 Safari/537.36"
-    ),
-    #agent = paste0("zen4R", as(packageVersion("zen4R"), "character")),
     url = NA,
     type = NA,
     request = NA,
@@ -31,6 +25,7 @@ ZenodoRequest <- R6Class("ZenodoRequest",
     exception = NA,
     result = NA,
     token = NULL,
+    agent = paste0("eblondel/zen4R_", as(packageVersion("zen4R"),"character")),
     
     prepareData = function(data){
       if(is(data, "ZenodoRecord")){
@@ -64,8 +59,8 @@ ZenodoRequest <- R6Class("ZenodoRequest",
       req <- paste(url, request, sep="/")
       self$INFO(sprintf("Fetching %s", req))
       headers <- c(
-        "Authorization" = paste("Bearer",private$token),
-        "User-Agent" = private$agent
+        "User-Agent" = private$agent,
+        "Authorization" = paste("Bearer",private$token)
       )
       
       r <- NULL
@@ -92,9 +87,9 @@ ZenodoRequest <- R6Class("ZenodoRequest",
       
       #headers
       headers <- c(
+        "User-Agent" = private$agent,
         "Content-Type" = contentType,
-        "Authorization" = paste("Bearer",private$token),
-        "User-Agent" = private$agent
+        "Authorization" = paste("Bearer",private$token)
       )
       
       #send request
@@ -127,9 +122,9 @@ ZenodoRequest <- R6Class("ZenodoRequest",
       
       #headers
       headers <- c(
+        "User-Agent" = private$agent,
         "Content-Type" = if(regexpr("api/files", req)>0) "application/octet-stream" else "application/json",
-        "Authorization" = paste("Bearer",private$token),
-        "User-Agent" = private$agent
+        "Authorization" = paste("Bearer",private$token)
       )
       
       #send request
@@ -157,8 +152,8 @@ ZenodoRequest <- R6Class("ZenodoRequest",
       req <- paste(url, request, data, sep="/")
       #headers
       headers <- c(
-        "Authorization" = paste("Bearer",private$token),
-        "User-Agent" = private$agent
+        "User-Agent" = private$agent,
+        "Authorization" = paste("Bearer",private$token)
       )
       if(self$verbose.debug){
         r <- with_verbose(httr::DELETE(
