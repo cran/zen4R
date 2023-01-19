@@ -237,13 +237,16 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @param pretty Prettify the output. By default the argument \code{pretty} is set to 
     #'    \code{TRUE} which will returns the list of grants as \code{data.frame}.
     #'    Set \code{pretty = FALSE} to get the raw list of grants
+    #' @param q an ElasticSearch compliant query, object of class \code{character}. Default is emtpy.
+    #'  Note that the Zenodo API restrains a maximum number of 10,000 grants to be retrieved. Consequently,
+    #'  not all grants can be listed from Zenodo, a query has to be specified.
     #' @param size number of grants to be returned. By default equal to 1000.
     #' @return list of grants as \code{data.frame} or \code{list}
-    getGrants = function(pretty = TRUE, size = 1000){
-      
+    getGrants = function(q = "", pretty = TRUE, size = 1000){
+      if(q=="") size = 10000
       page <- 1
       lastPage <- FALSE
-      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants/?size=%s&page=%s", size, page), 
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants/?q=%s&size=%s&page=%s", URLencode(q), size, page), 
                                   token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
@@ -251,16 +254,26 @@ ZenodoManager <-  R6Class("ZenodoManager",
       if(zenReq$getStatus() == 200){
         resp <- zenReq$getResponse()
         grants <- resp$hits$hits
+        total <- resp$hits$total
+        if(total > 10000){
+          self$WARN(sprintf("Total of %s records found: the Zenodo API limits to a maximum of 10,000 records!", total)) 
+        }
+        total_remaining <- total
         hasGrants <- length(grants)>0
         while(hasGrants){
           out <- c(out, grants)
           if(!is.null(grants)){
             self$INFO(sprintf("Successfully fetched list of grants - page %s", page))
-            page <- page+1  #next
+            if(q!=""){
+              page <- page+1  #next
+              total_remaining <- total_remaining-length(grants)
+            }else{
+              break;
+            }
           }else{
             lastPage <- TRUE
           }
-          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants/?size=%s&page=%s", size, page), 
+          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants/?q=%s&size=%s&page=%s", URLencode(q), size, page), 
                                       token = self$getToken(),
                                       logger = self$loggerType)
           zenReq$execute()
@@ -268,13 +281,13 @@ ZenodoManager <-  R6Class("ZenodoManager",
             resp <- zenReq$getResponse()
             grants <- resp$hits$hits
             hasGrants <- length(grants)>0
+            if(lastPage) break;
           }else{
-            self$WARN("Maximum allowed size for list of grants - page %s - attempt to decrease size")
+            self$WARN(sprintf("Maximum allowed size for list of grants - page %s - attempt to decrease size", page))
             size <- size-1
             hasGrants <- TRUE
             grants <- NULL
           }
-          if(lastPage) break;
         }
         self$INFO("Successfully fetched list of grants!")
       }else{
@@ -301,17 +314,28 @@ ZenodoManager <-  R6Class("ZenodoManager",
             funder_name = x$metadata$funder$name,
             funder_type = x$metadata$funder$type,
             funder_subtype = x$metadata$funder$subtype,
-            funder_parent_country = x$metadata$funder$parent$country,
-            funder_parent_doi = x$metadata$funder$parent$doi,
-            funder_parent_name = x$metadata$funder$parent$name,
-            funder_parent_type = x$metadata$funder$parent$type,
-            funder_parent_subtype = x$metadata$funder$parent$subtype,
+            funder_parent_country = if(length(x$metadata$funder$parent)>0) x$metadata$funder$parent$country else NA,
+            funder_parent_doi = if(length(x$metadata$funder$parent)>0) x$metadata$funder$parent$doi else NA,
+            funder_parent_name = if(length(x$metadata$funder$parent)>0) x$metadata$funder$parent$name else NA,
+            funder_parent_type = if(length(x$metadata$funder$parent)>0) x$metadata$funder$parent$type else NA,
+            funder_parent_subtype = if(length(x$metadata$funder$parent)>0) x$metadata$funder$parent$subtype else NA,
             stringsAsFactors = FALSE
           )
           return(rec)
         }))
       }
       return(out)
+    },
+    
+    #' @description Get grants by name.
+    #' @param name name
+    #' @param pretty Prettify the output. By default the argument \code{pretty} is set to 
+    #'    \code{TRUE} which will returns the list of grants as \code{data.frame}.
+    #'    Set \code{pretty = FALSE} to get the raw list of grants
+    #' @return list of grants as \code{data.frame} or \code{list}
+    getGrantsByName = function(name, pretty = TRUE){
+      query = sprintf("title:%s", URLencode(paste0("\"",name,"\"")))
+      self$getGrants(q = query, pretty = pretty)
     },
     
     #' @description Get grant by Id.
@@ -335,17 +359,20 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #Funders
     #------------------------------------------------------------------------------------------
     
-    #' @description Get Funders supported by Zenodo.
+    #' @description Get Funders supported by Zenodo based on a query.
     #' @param pretty Prettify the output. By default the argument \code{pretty} is set to 
     #'    \code{TRUE} which will returns the list of funders as \code{data.frame}.
-    #'    Set \code{pretty = FALSE} to get the raw list of grants
+    #'    Set \code{pretty = FALSE} to get the raw list of funders
+    #' @param q an ElasticSearch compliant query, object of class \code{character}. Default is emtpy.
+    #'  Note that the Zenodo API restrains a maximum number of 10,000 funders to be retrieved. Consequently,
+    #'  not all funders can be listed from Zenodo, a query has to be specified.
     #' @param size number of funders to be returned. By default equal to 1000.
     #' @return list of funders as \code{data.frame} or \code{list}
-    getFunders = function(pretty = TRUE, size = 1000){
-      
+    getFunders = function(q = "", pretty = TRUE, size = 1000){
+      if(q=="") size = 10000
       page <- 1
       lastPage <- FALSE
-      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders/?size=%s&page=%s", size, page), 
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders/?q=%s&size=%s&page=%s", URLencode(q), size, page), 
                                   token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
@@ -353,16 +380,26 @@ ZenodoManager <-  R6Class("ZenodoManager",
       if(zenReq$getStatus() == 200){
         resp <- zenReq$getResponse()
         funders <- resp$hits$hits
+        total <- resp$hits$total
+        if(total > 10000){
+          self$WARN(sprintf("Total of %s records found: the Zenodo API limits to a maximum of 10,000 records!", total)) 
+        }
+        total_remaining <- total
         hasFunders <- length(funders)>0
         while(hasFunders){
           out <- c(out, funders)
           if(!is.null(funders)){
             self$INFO(sprintf("Successfully fetched list of funders - page %s", page))
-            page <- page+1  #next
+            if(q != ""){
+              page <- page+1  #next
+              total_remaining <- total_remaining-length(funders)
+            }else{
+              break;
+            }
           }else{
             lastPage <- TRUE
           }
-          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders/?size=%s&page=%s", size, page), 
+          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders/?q=%s&size=%s&page=%s", URLencode(q), size, page), 
                                       token = self$getToken(),
                                       logger = self$loggerType)
           zenReq$execute()
@@ -370,13 +407,13 @@ ZenodoManager <-  R6Class("ZenodoManager",
             resp <- zenReq$getResponse()
             funders <- resp$hits$hits
             hasFunders <- length(funders)>0
+            if(lastPage) break;
           }else{
-            self$WARN("Maximum allowed size for list of funders - page %s - attempt to decrease size")
+            self$WARN(sprintf("Maximum allowed size for list of funders - page %s - attempt to decrease size", page))
             size <- size-1
             hasFunders <- TRUE
             funders <- NULL
           }
-          if(lastPage) break;
         }
         self$INFO("Successfully fetched list of funders!")
       }else{
@@ -404,6 +441,17 @@ ZenodoManager <-  R6Class("ZenodoManager",
         }))
       }
       return(out)
+    },
+    
+    #' @description Get funders by name.
+    #' @param name name
+    #' @param pretty Prettify the output. By default the argument \code{pretty} is set to 
+    #'    \code{TRUE} which will returns the list of funders as \code{data.frame}.
+    #'    Set \code{pretty = FALSE} to get the raw list of funders
+    #' @return list of funders as \code{data.frame} or \code{list}
+    getFundersByName = function(name, pretty = TRUE){
+      query = sprintf("name:%s", URLencode(paste0("\"",name,"\"")))
+      self$getFunders(q = query, pretty = pretty)
     },
     
     #' @description Get funder by Id.
@@ -494,7 +542,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @param conceptdoi the concept DOI, object of class \code{character}
     #' @return an object of class \code{ZenodoRecord} if record does exist, NULL otherwise
     getDepositionByConceptDOI = function(conceptdoi){
-      query <- sprintf("conceptdoi:%s", gsub("/", "//", conceptdoi))
+      query <- sprintf("conceptdoi:\"%s\"", conceptdoi)
       result <- self$getDepositions(q = query, exact = TRUE)
       if(length(result)>0){
         conceptdois <- vapply(result, function(i){
@@ -534,7 +582,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @param doi the DOI, object of class \code{character}
     #' @return an object of class \code{ZenodoRecord} if record does exist, NULL otherwise
     getDepositionByDOI = function(doi){
-      query <- sprintf("doi:%s", gsub("/", "//", doi))
+      query <- sprintf("doi:\"%s\"", doi)
       result <- self$getDepositions(q = query, all_versions = TRUE, exact = TRUE)
       if(length(result)>0){
         result <- result[[1]]
@@ -972,7 +1020,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
       if(regexpr("zenodo", conceptdoi) < 0){
         stop(sprintf("DOI '%s' doesn not seem to be a Zenodo DOI", conceptdoi))
       }
-      query <- sprintf("conceptdoi:%s", gsub("/", "//", conceptdoi))
+      query <- sprintf("conceptdoi:\"%s\"", conceptdoi)
       result <- self$getRecords(q = query, all_versions = TRUE, exact = TRUE)
       if(length(result)>0){
         result <- result[[1]]
@@ -1005,7 +1053,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
       if(regexpr("zenodo", doi) < 0){
         stop(sprintf("DOI '%s' doesn not seem to be a Zenodo DOI", doi))
       }
-      query <- sprintf("doi:%s", gsub("/", "//", doi))
+      query <- sprintf("doi:\"%s\"", doi)
       result <- self$getRecords(q = query, all_versions = TRUE, exact = TRUE)
       if(length(result)>0){
         result <- result[[1]]
