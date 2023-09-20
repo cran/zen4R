@@ -66,11 +66,12 @@ ZenodoManager <-  R6Class("ZenodoManager",
     keyring_backend = NULL,
     keyring_service = NULL,
     url = "https://zenodo.org/api",
-    sandbox = FALSE,
     verbose.info = FALSE
   ),
   public = list(
     
+    #' @field sandbox Zenodo manager sandbox status, \code{TRUE} if we interact with Sandbox infra
+    sandbox = FALSE, 
     #' @field anonymous Zenodo manager anonymous status, \code{TRUE} when no token is specified
     anonymous = FALSE,
     
@@ -78,15 +79,17 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @param url Zenodo API URL. By default, the url is set to "https://zenodo.org/api". For tests, 
     #'   the Zenodo sandbox API URL can be used: https://sandbox.zenodo.org/api 
     #' @param token the user token. By default an attempt will be made to retrieve token using \link{zenodo_pat}
+    #' @param sandbox Indicates if the Zenodo sandbox platform should be used. Default is \code{FALSE}
     #' @param logger logger type. The logger can be either NULL, "INFO" (with minimum logs), or "DEBUG" 
     #'    (for complete curl http calls logs)
     #' @param keyring_backend The \pkg{keyring} backend used to store user token. The \code{keyring_backend} 
     #' can be set to use a different backend for storing the Zenodo token with \pkg{keyring} (Default value is 'env').
-    initialize = function(url = "https://zenodo.org/api", token = zenodo_pat(), logger = NULL,
+    initialize = function(url = "https://zenodo.org/api", token = zenodo_pat(), sandbox = FALSE, logger = NULL,
                           keyring_backend = 'env'){
       super$initialize(logger = logger)
+      if(sandbox) url = "https://sandbox.zenodo.org/api"
       private$url = url
-      if(url == "https://sandbox.zenodo.org/api") private$sandbox = TRUE
+      if(url == "https://sandbox.zenodo.org/api") self$sandbox = TRUE
       if(!is.null(token)) if(nzchar(token)){
         if(!keyring_backend %in% names(keyring:::known_backends)){
           errMsg <- sprintf("Backend '%s' is not a known keyring backend!", keyring_backend)
@@ -911,6 +914,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
         ZenodoRequest$new(
           private$url, method, method_url, 
           data = upload_file(path),
+          progress = TRUE,
           token = self$getToken(),
           logger = self$loggerType
         )
@@ -918,6 +922,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
         ZenodoRequest$new(
           private$url, method, method_url, 
           data = filename, file = upload_file(path),
+          progress = TRUE,
           token = self$getToken(),
           logger = self$loggerType
         )
@@ -975,7 +980,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
       page <- 1
       req <- sprintf("records/?q=%s&size=%s&page=%s", URLencode(q), size, page)
       if(all_versions) req <- paste0(req, "&all_versions=1")
-      zenReq <- ZenodoRequest$new(private$url, "GET", req, 
+      zenReq <- ZenodoRequest$new(private$url, "GET_WITH_CURL", req, 
                                   token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
@@ -994,7 +999,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
             page <- page+1
             nextreq <- sprintf("records/?q=%s&size=%s&page=%s", URLencode(q), size, page)
             if(all_versions) nextreq <- paste0(nextreq, "&all_versions=1")
-            zenReq <- ZenodoRequest$new(private$url, "GET", nextreq, 
+            zenReq <- ZenodoRequest$new(private$url, "GET_WITH_CURL", nextreq, 
                                         token = self$getToken(),
                                         logger = self$loggerType)
             zenReq$execute()

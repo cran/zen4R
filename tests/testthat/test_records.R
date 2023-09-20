@@ -24,13 +24,13 @@ test_that("create and deposit record",{
   myrec$setUploadType("publication")
   myrec$setPublicationType("article")
   myrec$addCreator(firstname = "John", lastname = "Doe", affiliation = "Independent")
-  myrec$setLicense("MIT")
-  expect_true(myrec$addCommunity("ecfunded"))
-  expect_false(myrec$addCommunity("ecfunded"))
+  myrec$setLicense("MIT", sandbox = TRUE)
+  expect_true(myrec$addCommunity("ecfunded", sandbox = TRUE))
+  expect_false(myrec$addCommunity("ecfunded", sandbox = TRUE))
   myrec$setKeywords(c("R","package","software"))
   myrec$addReference("Author et al., 2019. Title")
   myrec$addReference("Fulano et al., 2018. Título")
-  myrec$addGrant("675680")
+  myrec$addGrant("675680", sandbox = TRUE)
   myrec$setJournalTitle("Journal title")
   myrec$setJournalVolume("1")
   myrec$setJournalIssue("Issue 1")
@@ -83,10 +83,13 @@ test_that("create and deposit record",{
   expect_is(deposit, "ZenodoRecord")
   Sys.sleep(5)
   
+  #update metadata
+  myrec$addCommunity("fisheries")
+  ZENODO$depositRecord(myrec)
+  
   #add files
   writeLines("This is a dummy file for testing zen4R", "README.md")
   ZENODO$uploadFile("README.md", record = deposit)
-  unlink("README.md")
   Sys.sleep(5)
   
   #delete record
@@ -103,8 +106,8 @@ test_that("create, deposit and publish record",{
   myrec$setPublicationType("article")
   myrec$addCreator(firstname = "John", lastname = "Doe", affiliation = "Independent")
   myrec$addCreator(name = "Doe2, John2", affiliation = "Independent")
-  myrec$setLicense("mit")
-  myrec$addCommunity("ecfunded")
+  myrec$setLicense("mit", sandbox = TRUE)
+  myrec$addCommunity("ecfunded", sandbox = TRUE)
   myrec$setKeywords(c("R","package","software"))
   myrec$addReference("Author et al., 2019. Title")
   myrec$addReference("Fulano et al., 2018. Título")
@@ -123,6 +126,10 @@ test_that("create, deposit and publish record",{
   #deposit
   deposit = ZENODO$depositRecord(myrec)
   expect_is(deposit, "ZenodoRecord")
+  
+  #update metadata
+  myrec$addCommunity("fisheries")
+  ZENODO$depositRecord(myrec)
   
   #add files
   writeLines("This is a dummy file for testing zen4R", "README.md")

@@ -60,6 +60,8 @@ Emmanuel Blondel <emmanuel.blondel1@gmail.com>
 \item{\code{title}}{record title}
 
 \item{\code{version}}{record version}
+
+\item{\code{stats}}{stats}
 }
 \if{html}{\out{</div>}}
 }
@@ -73,6 +75,7 @@ Emmanuel Blondel <emmanuel.blondel1@gmail.com>
 \item \href{#method-ZenodoRecord-getFirstDOI}{\code{ZenodoRecord$getFirstDOI()}}
 \item \href{#method-ZenodoRecord-getLastDOI}{\code{ZenodoRecord$getLastDOI()}}
 \item \href{#method-ZenodoRecord-getVersions}{\code{ZenodoRecord$getVersions()}}
+\item \href{#method-ZenodoRecord-getStats}{\code{ZenodoRecord$getStats()}}
 \item \href{#method-ZenodoRecord-setUploadType}{\code{ZenodoRecord$setUploadType()}}
 \item \href{#method-ZenodoRecord-setPublicationType}{\code{ZenodoRecord$setPublicationType()}}
 \item \href{#method-ZenodoRecord-setImageType}{\code{ZenodoRecord$setImageType()}}
@@ -282,6 +285,19 @@ Get record versions with creation/publication date,
 
 \subsection{Returns}{
 a \code{data.frame} with the record versions
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-ZenodoRecord-getStats"></a>}}
+\if{latex}{\out{\hypertarget{method-ZenodoRecord-getStats}{}}}
+\subsection{Method \code{getStats()}}{
+Get record statistics
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$getStats()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+statistics as \code{data.frame}
 }
 }
 \if{html}{\out{<hr>}}
@@ -590,11 +606,15 @@ Removes a creator by GND.
 \if{html}{\out{<a id="method-ZenodoRecord-addContributor"></a>}}
 \if{latex}{\out{\hypertarget{method-ZenodoRecord-addContributor}{}}}
 \subsection{Method \code{addContributor()}}{
-Add a contributor for the record. Firstname, lastname, and type are mandatory.
+Add a contributor for the record. One approach is to use the \code{firstname} and
+   \code{lastname} arguments, that by default will be concatenated for Zenodo as
+   \code{lastname, firstname}. For more flexibility over this, the \code{name}
+   argument can be directly used.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$addContributor(
   firstname,
   lastname,
+  name = paste(lastname, firstname, sep = ", "),
   type,
   affiliation = NULL,
   orcid = NULL,
@@ -608,6 +628,8 @@ Add a contributor for the record. Firstname, lastname, and type are mandatory.
 \item{\code{firstname}}{contributor first name}
 
 \item{\code{lastname}}{contributor last name}
+
+\item{\code{name}}{contributor name}
 
 \item{\code{type}}{contributor type, among values: ContactPerson, 
 DataCollector, DataCurator, DataManager, Distributor, Editor, Funder, HostingInstitution, 
@@ -739,13 +761,15 @@ Set license. The license should be set with the Zenodo id of the license. If not
    recognized by Zenodo, the function will return an error. The list of licenses can
    fetched with the \code{ZenodoManager} and the function \code{$getLicenses()}.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$setLicense(licenseId)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$setLicense(licenseId, sandbox = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{licenseId}}{a license Id}
+
+\item{\code{sandbox}}{Use the Zenodo sandbox infrastructure as basis to control available licenses. Default is \code{FALSE}}
 }
 \if{html}{\out{</div>}}
 }
@@ -1052,7 +1076,7 @@ Set notes. HTML is not allowed
 \subsection{Method \code{setCommunities()}}{
 Set a vector of character strings identifying communities
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$setCommunities(communities)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$setCommunities(communities, sandbox = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -1061,6 +1085,8 @@ Set a vector of character strings identifying communities
 \item{\code{communities}}{a vector or list of communities. Values should among known communities. The list of communities can
 fetched with the \code{ZenodoManager} and the function \code{$getCommunities()}. Each community should be set with 
 the Zenodo id of the community. If not recognized by Zenodo, the function will return an error.}
+
+\item{\code{sandbox}}{Use the Zenodo sandbox infrastructure as basis to control available communities. Default is \code{FALSE}}
 }
 \if{html}{\out{</div>}}
 }
@@ -1071,7 +1097,7 @@ the Zenodo id of the community. If not recognized by Zenodo, the function will r
 \subsection{Method \code{addCommunity()}}{
 Adds a community to the record metadata.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$addCommunity(community)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$addCommunity(community, sandbox = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -1080,6 +1106,8 @@ Adds a community to the record metadata.
 \item{\code{community}}{community to add. The community should be set with the Zenodo id of the community. 
 If not recognized by Zenodo, the function will return an error. The list of communities can fetched 
 with the \code{ZenodoManager} and the function \code{$getCommunities()}.}
+
+\item{\code{sandbox}}{Use the Zenodo sandbox infrastructure as basis to control available communities. Default is \code{FALSE}}
 }
 \if{html}{\out{</div>}}
 }
@@ -1113,7 +1141,7 @@ Removes a community from the record metadata.
 \subsection{Method \code{setGrants()}}{
 Set a vector of character strings identifying grants
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$setGrants(grants)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$setGrants(grants, sandbox = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -1122,6 +1150,8 @@ Set a vector of character strings identifying grants
 \item{\code{grants}}{a vector or list of grants Values should among known grants The list of grants can
 fetched with the \code{ZenodoManager} and the function \code{$getGrants()}. Each grant should be set with 
 the Zenodo id of the grant If not recognized by Zenodo, the function will raise a warning only.}
+
+\item{\code{sandbox}}{Use the Zenodo sandbox infrastructure as basis to control available grants. Default is \code{FALSE}}
 }
 \if{html}{\out{</div>}}
 }
@@ -1132,7 +1162,7 @@ the Zenodo id of the grant If not recognized by Zenodo, the function will raise 
 \subsection{Method \code{addGrant()}}{
 Adds a grant to the record metadata.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$addGrant(grant)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{ZenodoRecord$addGrant(grant, sandbox = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -1141,6 +1171,8 @@ Adds a grant to the record metadata.
 \item{\code{grant}}{grant to add. The grant should be set with the id of the grant. If not
 recognized by Zenodo, the function will return an warning only. The list of grants can
 fetched with the \code{ZenodoManager} and the function \code{$getGrants()}.}
+
+\item{\code{sandbox}}{Use the Zenodo sandbox infrastructure as basis to control available grants. Default is \code{FALSE}}
 }
 \if{html}{\out{</div>}}
 }
@@ -1890,6 +1922,8 @@ Downloads files attached to the record
   parallel_handler = NULL,
   cl = NULL,
   quiet = FALSE,
+  overwrite = TRUE,
+  timeout = 60,
   ...
 )}\if{html}{\out{</div>}}
 }
@@ -1911,6 +1945,10 @@ and passed as \code{cl} argument. After downloading all files, the cluster will 
 \item{\code{cl}}{an optional cluster for cluster-based parallel handlers}
 
 \item{\code{quiet}}{(default is \code{FALSE}) can be set to suppress informative messages (not warnings).}
+
+\item{\code{overwrite}}{(default is \code{TRUE}) can be set to FALSE to avoid re-downloading existing files.}
+
+\item{\code{timeout}}{(default is 60s) see \code{download.file}.}
 
 \item{\code{...}}{arguments inherited from \code{parallel::mclapply} or the custom \code{parallel_handler}
 can be added (eg. \code{mc.cores} for \code{mclapply})}

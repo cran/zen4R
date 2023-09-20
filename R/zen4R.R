@@ -8,9 +8,12 @@
 #' @import httr
 #' @import jsonlite
 #' @import xml2
+#' @import XML
 #' @import keyring
 #' @importFrom tools file_path_as_absolute
 #' @importFrom tools md5sum
+#' @import atom4R
+#' @importFrom utf8 utf8_encode
 #' 
 #' @title Interface to 'Zenodo' REST API
 #' @description Provides an Interface to 'Zenodo' (<https://zenodo.org>) REST API, 

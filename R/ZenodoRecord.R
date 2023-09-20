@@ -41,7 +41,14 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       self$created = obj$created
       self$doi = obj$doi
       self$doi_url = obj$doi_url
-      self$files = obj$files
+      self$files = lapply(obj$files, function(file){
+        list(
+          filename = if(!is.null(file$filename)) file$filename else file$key,
+          filesize = if(!is.null(file$filesize)) file$filesize else file$size,
+          checksum = if(!startsWith(file$checksum, "md5:")) file$checksum else unlist(strsplit(file$checksum, "md5:"))[2],
+          download = if(!is.null(file$links$download)) file$links$download else file$links$self
+        )
+      })
       self$id = obj$id
       self$links = obj$links
       self$metadata = obj$metadata
@@ -52,6 +59,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       self$submitted = obj$submitted
       self$title = obj$title
       self$version = obj$version
+      if(!is.null(obj$stats)) self$stats = data.frame(obj$stats)
     }
   ),
   public = list(
@@ -87,6 +95,8 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     title = NULL,
     #' @field version record version
     version = NULL,
+    #' @field stats stats
+    stats = NULL,
     
     #' @description method is used to instantiate a \code{\link{ZenodoRecord}}
     #' @param obj an optional list object to create the record
@@ -183,6 +193,12 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       }
       
       return(versions)
+    },
+    
+    #' @description Get record statistics
+    #' @return statistics as \code{data.frame}
+    getStats = function(){
+      return(self$stats)
     },
     
     #' @description Set the upload type (mandatory). 
@@ -345,9 +361,13 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       return(self$removeCreator(by = "gnd", gnd))
     },
     
-    #' @description  Add a contributor for the record. Firstname, lastname, and type are mandatory.
+    #' @description  Add a contributor for the record. One approach is to use the \code{firstname} and
+    #'    \code{lastname} arguments, that by default will be concatenated for Zenodo as
+    #'    \code{lastname, firstname}. For more flexibility over this, the \code{name}
+    #'    argument can be directly used.
     #' @param firstname contributor first name
     #' @param lastname contributor last name
+    #' @param name contributor name
     #' @param type contributor type, among values: ContactPerson, 
     #'    DataCollector, DataCurator, DataManager, Distributor, Editor, Funder, HostingInstitution, 
     #'    Producer, ProjectLeader, ProjectManager, ProjectMember, RegistrationAgency, RegistrationAuthority,
@@ -356,7 +376,8 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #' @param orcid contributor orcid (optional)
     #' @param gnd contributor gnd (optional)
     #' @return \code{TRUE} if added, \code{FALSE} otherwise
-    addContributor = function(firstname, lastname, type, affiliation = NULL, orcid = NULL, gnd = NULL){
+    addContributor = function(firstname, lastname, name = paste(lastname, firstname, sep = ", "),
+                              type, affiliation = NULL, orcid = NULL, gnd = NULL){
       allowedTypes <- c("ContactPerson", "DataCollector", "DataCurator", "DataManager","Distributor",
                         "Editor", "Funder", "HostingInstitution", "Producer", "ProjectLeader", "ProjectManager",
                         "ProjectMember", "RegistrationAgency", "RegistrationAuthority", "RelatedPerson",
@@ -365,7 +386,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
         stop(sprintf("The contributor type should be one value among values [%s]",
                       paste(allowedTypes, collapse=",")))
       }
-      contributor <- list(name = paste(lastname, firstname, sep=", "), type = type)
+      contributor <- list(name = name, type = type)
       if(!is.null(affiliation)) contributor <- c(contributor, affiliation = affiliation)
       if(!is.null(orcid)) contributor <- c(contributor, orcid = orcid)
       if(!is.null(gnd)) contributor <- c(contributor, gnd = gnd)
@@ -423,9 +444,10 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #' @description Set license. The license should be set with the Zenodo id of the license. If not
     #'    recognized by Zenodo, the function will return an error. The list of licenses can
     #'    fetched with the \code{ZenodoManager} and the function \code{$getLicenses()}.
-    #' @param licenseId a license Id 
-    setLicense = function(licenseId){
-      zen <- ZenodoManager$new()
+    #' @param licenseId a license Id
+    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available licenses. Default is \code{FALSE}
+    setLicense = function(licenseId, sandbox = FALSE){
+      zen <- ZenodoManager$new(sandbox = sandbox)
       zen_license <- zen$getLicenseById(licenseId)
       if(!is.null(zen_license$status)){
         errorMsg <- sprintf("License with id '%s' doesn't exist in Zenodo", licenseId)
@@ -646,10 +668,11 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #' @param communities a vector or list of communities. Values should among known communities. The list of communities can
     #'    fetched with the \code{ZenodoManager} and the function \code{$getCommunities()}. Each community should be set with 
     #'    the Zenodo id of the community. If not recognized by Zenodo, the function will return an error.
-    setCommunities = function(communities){
+    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available communities. Default is \code{FALSE}
+    setCommunities = function(communities, sandbox = FALSE){
       if(is.null(self$metadata$communities)) self$metadata$communities <- list()
       for(community in communities){
-        self$addCommunity(community)
+        self$addCommunity(community, sandbox = sandbox)
       }
     },
     
@@ -657,10 +680,11 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #' @param community community to add. The community should be set with the Zenodo id of the community. 
     #'   If not recognized by Zenodo, the function will return an error. The list of communities can fetched 
     #'   with the \code{ZenodoManager} and the function \code{$getCommunities()}.
+    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available communities. Default is \code{FALSE}
     #' @return \code{TRUE} if added, \code{FALSE} otherwise
-    addCommunity = function(community){
+    addCommunity = function(community, sandbox = FALSE){
       added <- FALSE
-      zen <- ZenodoManager$new()
+      zen <- ZenodoManager$new(sandbox = sandbox)
       if(is.null(self$metadata$communities)) self$metadata$communities <- list()
       if(!(community %in% sapply(self$metadata$communities, function(x){x$identifier}))){
         zen_community <- zen$getCommunityById(community)
@@ -697,10 +721,11 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #' @param grants a vector or list of grants Values should among known grants The list of grants can
     #'    fetched with the \code{ZenodoManager} and the function \code{$getGrants()}. Each grant should be set with 
     #'    the Zenodo id of the grant If not recognized by Zenodo, the function will raise a warning only.
-    setGrants = function(grants){
+    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available grants. Default is \code{FALSE}
+    setGrants = function(grants, sandbox = FALSE){
       if(is.null(self$metadata$grants)) self$metadata$grants <- list()
       for(grant in grants){
-        self$addGrant(grant)
+        self$addGrant(grant, sandbox = sandbox)
       }
     },
     
@@ -708,10 +733,11 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #' @param grant grant to add. The grant should be set with the id of the grant. If not
     #'    recognized by Zenodo, the function will return an warning only. The list of grants can
     #'    fetched with the \code{ZenodoManager} and the function \code{$getGrants()}.
+    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available grants. Default is \code{FALSE}
     #' @return \code{TRUE} if added, \code{FALSE} otherwise
-    addGrant = function(grant){
+    addGrant = function(grant, sandbox = FALSE){
       added <- FALSE
-      zen <- ZenodoManager$new()
+      zen <- ZenodoManager$new(sandbox = sandbox)
       if(is.null(self$metadata$grants)) self$metadata$grants <- list()
       if(!(grant %in% self$metadata$grants)){
         if(regexpr("::", grant)>0){
@@ -1060,11 +1086,10 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       outdf <- do.call("rbind", lapply(self$files, function(x){
         return(
           data.frame(
-            id = x$id,
-            checksum = x$checksum,
             filename = x$filename,
-            download = x$links$download,
-            self = x$links$self,
+            filesize = x$filesize,
+            checksum = x$checksum,
+            download = x$download,
             stringsAsFactors = FALSE
           )
         )
@@ -1082,18 +1107,28 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #'   and passed as \code{cl} argument. After downloading all files, the cluster will be stopped automatically.
     #' @param cl an optional cluster for cluster-based parallel handlers
     #' @param quiet (default is \code{FALSE}) can be set to suppress informative messages (not warnings).
+    #' @param overwrite (default is \code{TRUE}) can be set to FALSE to avoid re-downloading existing files.
+    #' @param timeout (default is 60s) see \code{download.file}.
     #' @param ... arguments inherited from \code{parallel::mclapply} or the custom \code{parallel_handler}
     #'   can be added (eg. \code{mc.cores} for \code{mclapply})
     #' 
     #' @note See examples in \code{\link{download_zenodo}} utility function.
     #' 
     downloadFiles = function(path = ".", files = list(),
-                             parallel = FALSE, parallel_handler = NULL, cl = NULL, quiet = FALSE, ...){
+                             parallel = FALSE, parallel_handler = NULL, cl = NULL, quiet = FALSE, overwrite=TRUE, timeout=60, ...){
       if(length(self$files)==0){
         self$WARN(sprintf("No files to download for record '%s' (doi: '%s')",
                           self$id, self$doi))
       }else{
         files.list <- self$files
+
+        if(!overwrite){
+          files.list <- files.list[
+            which(sapply(files.list, function(x){
+            !file.exists(file.path(path, x$filename))}))
+          ]
+        }
+
         if(length(files)>0) files.list <- files.list[sapply(files.list, function(x){x$filename %in% files})]
         if(length(files.list)==0){
           errMsg <- sprintf("No files available in record '%s' (doi: '%s') for file names [%s]",
@@ -1107,7 +1142,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
                               self$id, self$doi, file))
           }
         }
-        
+
         files_summary <- sprintf("Will download %s file%s from record '%s' (doi: '%s') - total size: %s",
                                 length(files.list), ifelse(length(files.list)>1,"s",""), self$id, self$doi, 
                                 human_filesize(sum(sapply(files.list, function(x){x$filesize}))))
@@ -1117,10 +1152,13 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
           file$filename <- substring(file$filename, regexpr("/", file$filename)+1, nchar(file$filename))
           if (!quiet) cat(sprintf("[zen4R][INFO] Downloading file '%s' - size: %s\n", 
                             file$filename, human_filesize(file$filesize)))
-          target_file <-file.path(path, file$filename)
-          download.file(url = file$links$download, destfile = target_file, 
+          target_file <- file.path(path, file$filename)
+          timeout_cache <- getOption("timeout")
+          options(timeout = timeout)
+          download.file(url = file$download, destfile = target_file, 
                         quiet = quiet, mode = "wb")
-        }          
+          options(timeout = timeout_cache)
+        }
         #check_integrity util
         check_integrity <- function(file){
           file$filename <- substring(file$filename, regexpr("/", file$filename)+1, nchar(file$filename))
@@ -1241,6 +1279,21 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
               }else{
                 fieldObj <- "<NULL>"
                 cat(paste0("\n",paste(rep(shift, depth), collapse=""),"|-- ", field, ": ", fieldObj))
+              }
+            }else if(is(fieldObj, "data.frame")){
+              if(field == "stats"){
+                cat(paste0("\n",paste(rep(shift, depth), collapse=""),"|-- ", field, ":"))
+                download_cols = colnames(fieldObj)[regexpr("downloads", colnames(fieldObj))>0]
+                view_cols = colnames(fieldObj)[regexpr("views", colnames(fieldObj))>0]
+                volume_cols = colnames(fieldObj)[regexpr("volume", colnames(fieldObj))>0]
+                cols = c(download_cols, view_cols, volume_cols)
+                for(col in cols){
+                  symbol = ""
+                  if(regexpr("views", col)>0) symbol = "\U0001f441"
+                  if(regexpr("downloads", col)>0) symbol = "\U2193"
+                  if(regexpr("volume", col)>0) symbol = "\U25A0"
+                  cat(paste0("\n",paste(rep(" ", depth), collapse=""),"   ", utf8::utf8_encode(symbol)," ", col, " = ", fieldObj[,col]))
+                }
               }
             }else{
               if(is.null(fieldObj)) fieldObj <- "<NULL>"

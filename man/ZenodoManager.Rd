@@ -81,6 +81,8 @@ Emmanuel Blondel <emmanuel.blondel1@gmail.com>
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
+\item{\code{sandbox}}{Zenodo manager sandbox status, \code{TRUE} if we interact with Sandbox infra}
+
 \item{\code{anonymous}}{Zenodo manager anonymous status, \code{TRUE} when no token is specified}
 }
 \if{html}{\out{</div>}}
@@ -146,6 +148,7 @@ initializes the Zenodo Manager
 \if{html}{\out{<div class="r">}}\preformatted{ZenodoManager$new(
   url = "https://zenodo.org/api",
   token = zenodo_pat(),
+  sandbox = FALSE,
   logger = NULL,
   keyring_backend = "env"
 )}\if{html}{\out{</div>}}
@@ -158,6 +161,8 @@ initializes the Zenodo Manager
 the Zenodo sandbox API URL can be used: https://sandbox.zenodo.org/api}
 
 \item{\code{token}}{the user token. By default an attempt will be made to retrieve token using \link{zenodo_pat}}
+
+\item{\code{sandbox}}{Indicates if the Zenodo sandbox platform should be used. Default is \code{FALSE}}
 
 \item{\code{logger}}{logger type. The logger can be either NULL, "INFO" (with minimum logs), or "DEBUG" 
 (for complete curl http calls logs)}

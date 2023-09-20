@@ -1,5 +1,27 @@
 # Change log
 
+## [zen4R 0.9](https://github.com/eblondel/zen4R) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/package=zen4R)
+
+**New features**
+
+* [#121](https://github.com/eblondel/zen4R/issues/121) Get Zenodo record views/downloads statistics
+* [#122](https://github.com/eblondel/zen4R/issues/122) Support `get_zenodo` shortcut method to get a Zenodo Record
+
+**Enhancements**
+
+* [#95](https://github.com/eblondel/zen4R/issues/95) Support progress when uploading files
+* [#114](https://github.com/eblondel/zen4R/issues/114) Avoid re-downloading existing files
+* [#117](https://github.com/eblondel/zen4R/issues/117) Support single (organisation) name argument in `addContributor`
+* [#119](https://github.com/eblondel/zen4R/issues/119) Support sandbox argument for ZenodoManager for easy use
+* [#118](https://github.com/eblondel/zen4R/issues/118) Support sandbox-based controls for license, grant, community management methods
+* [#123](https://github.com/eblondel/zen4R/issues/123) Support curl fetch for Zenodo records to inherit stats directly
+* [#124](https://github.com/eblondel/zen4R/issues/124) Align files listing / download on new method to fetch records
+* [#126](https://github.com/eblondel/zen4R/issues/126) Make field `sandbox` public
+
+**Bug fixes**
+
+* [#125](https://github.com/eblondel/zen4R/issues/125) Ensure null stats with deposition decoding (regression that relates to #123)
+
 ## [zen4R 0.8](https://cran.r-project.org/package=zen4R) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/package=zen4R)
 
 **Enhancements**
@@ -13,7 +35,7 @@
 * [#110](https://github.com/eblondel/zen4R/issues/110) `getFundersByName` new method
 * [#111](https://github.com/eblondel/zen4R/issues/111) `getGrantsByName` new method
 
-## [zen4R 0.7-1](https://cran.r-project.org/package=zen4R) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/package=zen4R)
+## [zen4R 0.7-1](https://cran.r-project.org/src/contrib/Archive/zen4R/zen4R_0.7-1.tar.gz) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/src/contrib/Archive/zen4R/zen4R_0.7-1.tar.gz)
 
 **Bug fixes**
 
