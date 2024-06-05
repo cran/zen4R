@@ -26,6 +26,7 @@ ZenodoRequest <- R6Class("ZenodoRequest",
     exception = NA,
     result = NA,
     token = NULL,
+    accept = "application/vnd.inveniordm.v1+json",
     agent = paste0("zen4R_", as(packageVersion("zen4R"),"character")),
     
     prepareData = function(data){
@@ -47,8 +48,10 @@ ZenodoRequest <- R6Class("ZenodoRequest",
         data <- data[!sapply(data, is.null)]
       }else if(is(data, "list")){
         meta <- data$metadata
-        if(!is.null(meta$prereserve_doi)) meta$prereserve_doi <- NULL
-        data <- list(metadata = meta)
+        if(!is.null(meta)){
+          if(!is.null(meta$prereserve_doi)) meta$prereserve_doi <- NULL
+          data <- list(metadata = meta)
+        }
       }
       
       data <- as(toJSON(data, pretty=T, auto_unbox=T), "character")
@@ -56,12 +59,14 @@ ZenodoRequest <- R6Class("ZenodoRequest",
       return(data)
     },
     
-    GET = function(url, request, progress, use_curl = FALSE){
+    GET = function(url, request, progress, use_curl = FALSE, accept = "application/vnd.inveniordm.v1+json"){
       req <- paste(url, request, sep="/")
       self$INFO(sprintf("Fetching %s", req))
       headers <- c(
         "User-Agent" = private$agent,
-        "Authorization" = paste("Bearer",private$token)
+        "Authorization" = paste("Bearer",private$token),
+        "Content-Type" = "application/json",
+        "Accept" = accept
       )
       
       responseContent <- NULL
@@ -89,21 +94,24 @@ ZenodoRequest <- R6Class("ZenodoRequest",
       return(response)
     },
     
-    POST = function(url, request, data, file = NULL, progress){
+    POST = function(url, request, data, file = NULL, progress, accept = "application/vnd.inveniordm.v1+json"){
       req <- paste(url, request, sep="/")
       if(!is.null(file)){
         contentType <- "multipart/form-data"
+        accept <- "application/json"
         data <- list(file = file, filename = data)
       }else{
         contentType <- "application/json"
+        accept = accept
         data <- private$prepareData(data)
       }
       
       #headers
       headers <- c(
         "User-Agent" = private$agent,
+        "Authorization" = paste("Bearer",private$token),
         "Content-Type" = contentType,
-        "Authorization" = paste("Bearer",private$token)
+        "Accept" = accept
       )
       
       #send request
@@ -134,13 +142,14 @@ ZenodoRequest <- R6Class("ZenodoRequest",
     PUT = function(url, request, data, progress){
       req <- paste(url, request, sep="/")
       
-      if(regexpr("api/files", req)<0) data <- private$prepareData(data)
+      if(regexpr("draft/files", req)<0) data <- private$prepareData(data)
       
       #headers
       headers <- c(
         "User-Agent" = private$agent,
-        "Content-Type" = if(regexpr("api/files", req)>0) "application/octet-stream" else "application/json",
-        "Authorization" = paste("Bearer",private$token)
+        "Authorization" = paste("Bearer",private$token),
+        "Content-Type" = if(regexpr("draft/files", req)>0) "application/octet-stream" else "application/json",
+        "Accept" = if(regexpr("draft/files", req)>0) NULL else "application/vnd.inveniordm.v1+json"
       )
       
       #send request
@@ -167,21 +176,27 @@ ZenodoRequest <- R6Class("ZenodoRequest",
     },
     
     DELETE = function(url, request, data){
-      req <- paste(url, request, data, sep="/")
+      req <- paste(url, request, sep="/")
       #headers
       headers <- c(
         "User-Agent" = private$agent,
-        "Authorization" = paste("Bearer",private$token)
+        "Authorization" = paste("Bearer",private$token),
+        "Content-Type" = "application/json"
       )
       if(self$verbose.debug){
+        print(data)
         r <- with_verbose(httr::DELETE(
           url = req,
-          add_headers(headers)
+          add_headers(headers),
+          encode = "json",
+          body = data
         ))
       }else{
         r <- httr::DELETE(
           url = req,
-          add_headers(headers)
+          add_headers(headers),
+          encode = "json",
+          body = data
         )
       }
       responseContent <- content(r, type = "application/json", encoding = "UTF-8")
@@ -200,10 +215,12 @@ ZenodoRequest <- R6Class("ZenodoRequest",
     #' @param data payload (optional)
     #' @param file to be uploaded (optional)
     #' @param progress whether a progress status has to be displayed for download/upload
+    #' @param accept accept header. Default is "application/vnd.inveniordm.v1+json"
     #' @param token user token
     #' @param logger the logger type
     #' @param ... any other arg
-    initialize = function(url, type, request, data = NULL, file = NULL, progress = FALSE,
+    initialize = function(url, type, request, data = NULL, file = NULL, progress = FALSE, 
+                          accept = "application/vnd.inveniordm.v1+json",
                           token, logger = NULL, ...) {
       super$initialize(logger = logger)
       private$url = url
@@ -213,6 +230,7 @@ ZenodoRequest <- R6Class("ZenodoRequest",
       private$file = file
       private$progress = progress
       private$token = token
+      private$accept = accept
      
     },
     
@@ -220,9 +238,9 @@ ZenodoRequest <- R6Class("ZenodoRequest",
     execute = function(){
       
       req <- switch(private$type,
-        "GET" = private$GET(private$url, private$request, private$progress),
-        "GET_WITH_CURL" = private$GET(private$url, private$request, private$progress, use_curl = TRUE),
-        "POST" = private$POST(private$url, private$request, private$data, private$file, private$progress),
+        "GET" = private$GET(private$url, private$request, private$progress, accept = private$accept),
+        "GET_WITH_CURL" = private$GET(private$url, private$request, private$progress, use_curl = TRUE, accept = private$accept),
+        "POST" = private$POST(private$url, private$request, private$data, private$file, private$progress, accept = private$accept),
         "PUT" = private$PUT(private$url, private$request, private$data, private$progress),
         "DELETE" = private$DELETE(private$url, private$request, private$data)
       )

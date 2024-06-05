@@ -28,7 +28,6 @@
 #'   myrec$setLicense("mit")
 #'   myrec$setAccessRight("open")
 #'   myrec$setDOI("mydoi") #use this method if your DOI has been assigned elsewhere, outside Zenodo
-#'   myrec$addCommunity("ecfunded")
 #'   
 #'   #deposit the record 
 #'   myrec <- ZENODO$depositRecord(myrec)
@@ -53,7 +52,7 @@
 #'   zen_files <- ZENODO$getFiles(myrec$id)
 #'   
 #'   #delete a file?
-#'   ZENODO$deleteFile(myrec$id, zen_files[[1]]$id)
+#'   ZENODO$deleteFile(myrec$id, zen_files[[1]]$filename)
 #' }
 #' 
 #' @note Main user class to be used with \pkg{zen4R}
@@ -87,7 +86,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
     initialize = function(url = "https://zenodo.org/api", token = zenodo_pat(), sandbox = FALSE, logger = NULL,
                           keyring_backend = 'env'){
       super$initialize(logger = logger)
-      if(sandbox) url = "https://sandbox.zenodo.org/api"
+      if(sandbox) url = "https://zenodo-rdm-qa.web.cern.ch/api"
       private$url = url
       if(url == "https://sandbox.zenodo.org/api") self$sandbox = TRUE
       if(!is.null(token)) if(nzchar(token)){
@@ -103,14 +102,19 @@ ZenodoManager <-  R6Class("ZenodoManager",
         if(!is.null(deps$status)) {
           if(deps$status == 401){
             errMsg <- "Cannot connect to your Zenodo deposit: Invalid token"
+            cli::cli_alert_danger(errMsg)
             self$ERROR(errMsg)
             stop(errMsg)
           }
         }else{
-          self$INFO("Successfully connected to Zenodo with user token")
+          infoMsg = "Successfully connected to Zenodo with user token"
+          cli::cli_alert_success(infoMsg)
+          self$INFO(infoMsg)
         }
       }else{
-        self$INFO("Successfully connected to Zenodo as anonymous user")
+        infoMsg = "Successfully connected to Zenodo as anonymous user"
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
         self$anonymous <- TRUE
       }
     },
@@ -125,7 +129,70 @@ ZenodoManager <-  R6Class("ZenodoManager",
       return(token)
     },
     
-    #Licenses
+    #Vocabulary/Languages
+    #------------------------------------------------------------------------------------------    
+    
+    #' @description Get Languages supported by Zenodo.
+    #' @param pretty Prettify the output. By default the argument \code{pretty} is set to 
+    #'    \code{TRUE} which will returns the list of languages as \code{data.frame}.
+    #'    Set \code{pretty = FALSE} to get the raw list of languages
+    #' @return list of languages as \code{data.frame} or \code{list}
+    getLanguages = function(pretty = TRUE){
+      zenReq <- ZenodoRequest$new(private$url, "GET", "vocabularies/languages?q=&size=1000",
+                                  accept = "application/json",
+                                  token= self$getToken(), 
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        out = out$hits$hits
+        if(pretty){
+          out = do.call("rbind", lapply(out,function(x){
+            rec = data.frame(
+              id = x$id,
+              title = x$title[[1]],
+              revision_id = x$revision_id,
+              created = x$created,
+              updated = x$updated
+            )
+            return(rec)
+          }))
+        }
+        infoMsg = "Successfully fetched list of languages"
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+      }else{
+        errMsg = sprintf("Error while fetching languages: %s", out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+      }
+      return(out)
+    },
+    
+    #' @description Get language by Id.
+    #' @param id license id
+    #' @return the license
+    getLanguageById = function(id){
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("vocabularies/languages/%s",id),
+                                  accept = "application/json",
+                                  token= self$getToken(), 
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successfully fetched language '%s'",id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+      }else{
+        errMsg = sprintf("Error while fetching language '%s': %s", id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- NULL
+      }
+      return(out)
+    },
+    
+    #Vocabulary/Licenses
     #------------------------------------------------------------------------------------------
 
     #' @description Get Licenses supported by Zenodo.
@@ -134,28 +201,37 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #'    Set \code{pretty = FALSE} to get the raw list of licenses.
     #' @return list of licenses as \code{data.frame} or \code{list}
     getLicenses = function(pretty = TRUE){
-      zenReq <- ZenodoRequest$new(private$url, "GET", "licenses/?q=&size=1000",
+      zenReq <- ZenodoRequest$new(private$url, "GET", "vocabularies/licenses?q=&size=1000",
+                                  accept = "application/json",
                                   token= self$getToken(), 
                                   logger = self$loggerType)
       zenReq$execute()
       out <- zenReq$getResponse()
       if(zenReq$getStatus() == 200){
-        out <- out$hits$hits
+        out = out$hits$hits
         if(pretty){
           out = do.call("rbind", lapply(out,function(x){
-            rec = x$metadata
-            rec$`$schema` <- NULL
-            rec$is_generic <- NULL
-            rec$suggest <- NULL
-            rec <- as.data.frame(rec)
-            rec <- rec[,c("id", "title", "url", "domain_content", "domain_data", "domain_software", "family", 
-                          "maintainer", "od_conformance", "osd_conformance", "status")]
+            rec = data.frame(
+              id = x$id,
+              title = x$title[[1]],
+              description = if(!is.null(x$description)) x$description[[1]] else NA,
+              url = x$props$url,
+              schema = x$props$scheme,
+              osi_approved = x$props$osi_approved,
+              revision_id = x$revision_id,
+              created = x$created,
+              updated = x$updated
+            )
             return(rec)
           }))
         }
-        self$INFO("Successfully fetched list of licenses")
+        infoMsg = "Successfully fetched list of licenses"
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
-        self$ERROR(sprintf("Error while fetching licenses: %s", out$message))
+        errMsg = sprintf("Error while fetching licenses: %s", out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
       }
       return(out)
     },
@@ -164,15 +240,84 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @param id license id
     #' @return the license
     getLicenseById = function(id){
-      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("licenses/%s",id),
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("vocabularies/licenses/%s",id),
+                                  accept = "application/json",
                                   token= self$getToken(), 
                                   logger = self$loggerType)
       zenReq$execute()
       out <- zenReq$getResponse()
       if(zenReq$getStatus() == 200){
-        self$INFO(sprintf("Successfully fetched license '%s'",id))
+        infoMsg = sprintf("Successfully fetched license '%s'",id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
-        self$ERROR(sprintf("Error while fetching license '%s': %s", id, out$message))
+        errMsg = sprintf("Error while fetching license '%s': %s", id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- NULL
+      }
+      return(out)
+    },
+    
+    #Vocabulary/resourcetypes
+    #------------------------------------------------------------------------------------------    
+    
+    #' @description Get Resource types supported by Zenodo.
+    #' @param pretty Prettify the output. By default the argument \code{pretty} is set to 
+    #'    \code{TRUE} which will returns the list of resource types as \code{data.frame}.
+    #'    Set \code{pretty = FALSE} to get the raw list of resource types
+    #' @return list of resource types as \code{data.frame} or \code{list}
+    getResourceTypes = function(pretty = TRUE){
+      zenReq <- ZenodoRequest$new(private$url, "GET", "vocabularies/resourcetypes?q=&size=1000",
+                                  accept = "application/json",
+                                  token= self$getToken(), 
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        out = out$hits$hits
+        if(pretty){
+          out = do.call("rbind", lapply(out,function(x){
+            rec = data.frame(
+              id = x$id,
+              title = x$title[[1]],
+              revision_id = x$revision_id,
+              created = x$created,
+              updated = x$updated
+            )
+            return(rec)
+          }))
+        }
+        infoMsg = "Successfully fetched list of resource types"
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+      }else{
+        errMsg = sprintf("Error while fetching resource types: %s", out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+      }
+      return(out)
+    },
+    
+    #' @description Get resource type by Id.
+    #' @param id resource type id
+    #' @return the resource type
+    getResourceTypeById = function(id){
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("vocabularies/resourcetypes/%s",id),
+                                  accept = "application/json",
+                                  token= self$getToken(), 
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successfully fetched resourcetype '%s'",id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+      }else{
+        errMsg = sprintf("Error while fetching resourcetype '%s': %s", id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- NULL
       }
       return(out)
     },
@@ -184,34 +329,94 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @param pretty Prettify the output. By default the argument \code{pretty} is set to 
     #'    \code{TRUE} which will returns the list of communities as \code{data.frame}.
     #'    Set \code{pretty = FALSE} to get the raw list of communities
+    #' @param q an ElasticSearch compliant query, object of class \code{character}. Default is emtpy.
+    #'  Note that the Zenodo API restrains a maximum number of 10,000 records to be retrieved. Consequently,
+    #'  not all communities can be listed from Zenodo, a query has to be specified.
+    #' @param size number of communities to be returned. By default equal to 500
     #' @return list of communities as \code{data.frame} or \code{list}
-    getCommunities = function(pretty = TRUE){
-      zenReq <- ZenodoRequest$new(private$url, "GET", "communities/?q=&size=10000",
-                                  token= self$getToken(),
+    getCommunities = function(pretty = TRUE, q = "", size = 500){
+      page <- 1
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("communities?q=%s&size=%s&page=%s", URLencode(q), size, page), 
+                                  accept = "application/json",
+                                  token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
-      out <- zenReq$getResponse()
+      out <- NULL
       if(zenReq$getStatus() == 200){
-        out <- out$hits$hits
-        if(pretty){
-          out = do.call("rbind", lapply(out,function(x){
-            rec = data.frame(
-              id = x$id,
-              title = x$title,
-              description = x$description,
-              curation_policy = x$curation_policy,
-              url = x$links$html,
-              created = x$created,
-              updated = x$updated,
-              stringsAsFactors = FALSE
-            )
-            return(rec)
-          }))
+        resp <- zenReq$getResponse()
+        communities <- resp$hits$hits
+        total <- resp$hits$total
+        if(total > 10000){
+          warnMsg = sprintf("Total of %s records found: the Zenodo API limits to a maximum of 10,000 records!", total)
+          cli::cli_alert_warning(warnMsg)
+          self$WARN(warnMsg) 
         }
-        self$INFO("Successfully fetched list of communities")
+        total_remaining <- total
+        hasCommunities <- length(communities)>0
+        while(hasCommunities){
+          out <- c(out, communities)
+          infoMsg = sprintf("Successfully fetched list of communities - page %s", page)
+          cli::cli_alert_success(infoMsg)
+          self$INFO(infoMsg)
+          total_remaining <- total_remaining-length(communities)
+          if(total_remaining <= size) size = total_remaining
+          if(total_remaining == 0){
+            break
+          }
+          
+          #next page
+          page <- page+1
+          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("communities?q=%s&size=%s&page=%s", URLencode(q), size, page), 
+                                      accept = "application/json",
+                                      token = self$getToken(),
+                                      logger = self$loggerType)
+          zenReq$execute()
+          if(zenReq$getStatus() == 200){
+            resp <- zenReq$getResponse()
+            communities <- resp$hits$hits
+            hasCommunities <- length(communities)>0
+          }else{
+            warnMsg = sprintf("Maximum allowed size for list of communities at page %s", page)
+            cli::cli_alert_warning(warnMsg)
+            self$WARN(warnMsg)
+            break
+          }
+        }
+        infoMsg = "Successfully fetched list of communities!"
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
-        self$ERROR(sprintf("Error while fetching communities: %s", out$message))
+        out <- zenReq$getResponse()
+        errMsg = sprintf("Error while fetching communities: %s", out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        for(error in out$errors){
+          errMsg = sprintf("Error: %s - %s", error$field, error$message)
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
+        }
       }
+      
+      if(pretty){
+        out = do.call("rbind", lapply(out,function(x){
+          rec = data.frame(
+            id = x$id,
+            title = x$metadata$title,
+            description = if(!is.null(x$metadata$description)) x$metadata$description else NA,
+            website = if(!is.null(x$metadata$website)) x$metadata$website else NA,
+            visibility = x$access$visibility,
+            member_policy = x$access$member_policy,
+            record_policy = x$access$record_policy,
+            review_policy = x$access$review_policy,
+            url = x$links$self_html,
+            created = x$created,
+            updated = x$updated,
+            stringsAsFactors = FALSE
+          )
+          return(rec)
+        }))
+      }
+      
       return(out)
     },
     
@@ -220,108 +425,399 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @return the community
     getCommunityById = function(id){
       zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("communities/%s",id),
+                                  accept = "application/json",
                                   token= self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
       out <- zenReq$getResponse()
       if(zenReq$getStatus() == 200){
-        self$INFO(sprintf("Successfully fetched community '%s'",id))
+        infoMsg = sprintf("Successfully fetched community '%s'",id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
-        self$ERROR(sprintf("Error while fetching community '%s': %s", id, out$message))
+        errMsg = sprintf("Error while fetching community '%s': %s", id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
         out <- NULL
       }
       return(out)
     },
     
-    #Grants
+    
+    #'@description Submit a published record to one or more community
+    #'@param record an object of class \link{ZenodoRecord}
+    #'@param communities communities to which the record will be submitted
+    #'@param message message to send to the community curator(s), either a text or a named list
+    #'for each community in case a community-specific message should be sent
+    #'@return a submission object of class \code{list}, or NULL if nothing was submitted
+    submitRecordToCommunities = function(record, communities = list(), message = NULL){
+      out = NULL
+      if(length(communities)==0){
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+        return(out)
+      }
+      if(!is.null(message)) if(is.list(message)){
+        if(!all(communities %in% names(message))){
+          errMsg = paste0("Message list is inconsistent with the list of communities provided.",
+                          "Please verify that the message is a list named with community names,",
+                          "e.g. ZENODO$dsubmitRecordToCommunities(record, communities = c('com1','com2'), message = list(com1 = 'message to com1', com2 = 'msg to com2'))")
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
+          stop(errMsg)
+        }
+      }
+      coms = lapply(communities, function(x){self$getCommunityById(x)})
+      if(any(sapply(coms, is.null))){
+        unk_coms = communities[sapply(coms, is.null)]
+        warnMsg = sprintf("Communities [%s] do not exist in Zenodo, they will be ignored!", paste(unk_coms, collapse=","))
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+      }
+      #check if community exists
+      existing_coms = coms[!sapply(coms, is.null)]
+      existing_com_names = communities[!sapply(coms, is.null)]
+      if(length(existing_coms)==0){
+        warnMsg = "No existing community specified! Aborting record submission to community"
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+        return(NULL)
+      }
+      coms_payload = list(
+        communities = lapply(existing_coms, function(x){
+          com_payload = list(
+            id = x$id
+          )
+          if(!is.null(message)){
+            if(is.character(message)){
+              com_payload$comment = list(payload = list(content = message, format = "html"))
+            }else if(is.list(message)){
+              if(x$slug %in% names(message)){
+                com_payload$comment = list(payload = list(content = message[[x$slug]], format = "html"))
+              }
+            }
+          }
+          return(com_payload)
+        })
+      )
+      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("records/%s/communities",record$id),
+                                  accept = "application/json", data = coms_payload,
+                                  token= self$getToken(),
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successfully submitted request to associate record %s to communities [%s]",
+                          record$id, paste0(existing_com_names, collapse=","))
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+      }else{
+        errMsg = sprintf("Error while submitting record %s to communities [%s]:", 
+                         record$id, paste0(existing_com_names, collapse=","))
+        print(out)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- NULL
+      }
+      return(out)
+    },
+    
+    #'@description Remove a record from one or more community
+    #'@param record an object of class \link{ZenodoRecord}
+    #'@param communities communities to which the record will be submitted
+    #'@return \code{TRUE} if removed, \code{FALSE} otherwise
+    removeRecordFromCommunities = function(record, communities = list()){
+      
+      coms = lapply(communities, function(x){self$getCommunityById(x)})
+      if(any(sapply(coms, is.null))){
+        unk_coms = communities[sapply(coms, is.null)]
+        warnMsg = sprintf("Communities [%s] do not exist in Zenodo, they will be ignored!", paste(unk_coms, collapse=","))
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+      }
+      #check if community exists
+      existing_coms = coms[!sapply(coms, is.null)]
+      existing_com_names = communities[!sapply(coms, is.null)]
+      if(length(existing_coms)==0){
+        warnMsg = "No existing community specified! Aborting record removal from community"
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+        return(NULL)
+      }
+      
+      payload = list(
+        communities = lapply(existing_coms, function(x){
+          list(id = x$id)
+        })
+      )
+      zenReq <- ZenodoRequest$new(private$url, "DELETE", sprintf("records/%s/communities",record$id),
+                                  data = payload,
+                                  token= self$getToken(),
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successful removed record %s from communities [%s]",
+                          record$id, paste0(existing_com_names, collapse=","))
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+        out = TRUE
+      }else{
+        errMsg = sprintf("Error while removing record %s from communities [%s]:", 
+                         record$id, paste0(existing_com_names, collapse=","))
+        print(out)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- FALSE
+      }
+      return(out)
+    },
+    
+    #' @description Get record communities
+    #' @param record object of class \code{ZenodoRecord}
+    #' @return the list of communities in which the record was included
+    getRecordCommunities = function(record){
+      out <- NULL
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("records/%s/communities", record$id), 
+                                  accept = "application/json",
+                                  token = self$getToken(),
+                                  logger = self$loggerType)
+      out <- NULL
+      zenReq$execute()
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successfully fetched communities for record '%s'",record$id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+        resp <- zenReq$getResponse()
+        out <- resp$hits$hits
+      }else{
+        errMsg = sprintf("Error while fetching communities for record '%s':", record$id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+      }
+      return(out)
+    },
+    
+    #Reviews
+    #---------------------------------------------------------------------------
+    #'@description Creates a record review request in a community
+    #'@param record an object of class \link{ZenodoRecord}
+    #'@param community a community to which the record is submitted for review and publication
+    #'@return a review request object of class \code{list}, or NULL if nothing was submitted
+    createReviewRequest = function(record, community){
+      
+      zen_com = self$getCommunityById(community)
+      if(is.null(zen_com)){
+        warnMsg = sprintf("Community '%s' does not exist in Zenodo! Aborting review request...", community)
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+        return(NULL)
+      }
+      
+      review_payload = list(receiver = list(community = zen_com$id), type = "community-submission")
+      zenReq <- ZenodoRequest$new(private$url, "PUT", sprintf("records/%s/draft/review",record$id),
+                                  accept = "application/json", data = review_payload,
+                                  token= self$getToken(),
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successfully created request to review record %s in community '%s'",
+                          record$id, community)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+      }else{
+        errMsg = sprintf("Error while creating request to review record %s in comunity '%s':", 
+                         record$id, community)
+        print(out)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- NULL
+      }
+      return(out)
+    },
+    
+    #'@description Get a record review request
+    #'@param record an object of class \link{ZenodoRecord}
+    #'@return a review request object of class \code{list}, or NULL if nothing exists
+    getReviewRequest = function(record){
+      
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("records/%s/draft/review",record$id),
+                                  accept = "application/json",
+                                  token= self$getToken(),
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successfully fetched request to review record %s", record$id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+      }else{
+        errMsg = sprintf("Error while fetching request to review record %s:", record$id)
+        print(out)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- NULL
+      }
+      return(out)
+    },
+    
+    #'@description Deletes a review request
+    #'@param record an object of class \link{ZenodoRecord}
+    #'@return \code{TRUE} if deleted, \code{FALSE} otherwise
+    deleteReviewRequest = function(record){
+      
+      zenReq <- ZenodoRequest$new(private$url, "DELETE", sprintf("records/%s/draft/review",record$id),
+                                  accept = "application/json",
+                                  token= self$getToken(),
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- NULL
+      if(zenReq$getStatus() == 204){
+        infoMsg = sprintf("Successfully deleted request to review record %s", record$id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+        out <- TRUE
+      }else{
+        errMsg = sprintf("Error while deleting request to review record %s:", record$id)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- FALSE
+      }
+      return(out)
+    },
+    
+    #'@description Submits a record for review. Prior to this submission, a community
+    #'has to be selected for a record. This is done by using the method \code{createReviewRequest(record, community)}.
+    #'@param recordId the ID of a Zenodo record
+    #'@param message message content for the submission. Optional
+    #'@return \code{TRUE} if submitted, \code{FALSE} otherwise
+    submitRecordForReview = function(recordId, message = NULL){
+      out = NULL
+      submit_payload = list()
+      if(!is.null(message)){
+        submit_payload = list(payload = list(content = message, format = "html"))
+      }
+      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("records/%s/draft/actions/submit-review", recordId), 
+                                  accept = "application/json", data = submit_payload,
+                                  token = self$getToken(),
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out = FALSE
+      if(zenReq$getStatus() == 202){
+        infoMsg = sprintf("Successfully submitted record %s for review", recordId)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+        out = TRUE
+      }else{
+        errMsg = sprintf("Error while submitting record %s for review:",recordId)
+        print(out)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- FALSE
+      }
+      return(out)
+    },
+    
+    #Special vocabulary/Awards (former Grants)
     #------------------------------------------------------------------------------------------
     
-    #' @description Get Grants supported by Zenodo.
+    #' @description Get Grants supported by Zenodo. DEPRECATED: replaced by \code{getAwards}
     #' @param pretty Prettify the output. By default the argument \code{pretty} is set to 
     #'    \code{TRUE} which will returns the list of grants as \code{data.frame}.
     #'    Set \code{pretty = FALSE} to get the raw list of grants
     #' @param q an ElasticSearch compliant query, object of class \code{character}. Default is emtpy.
-    #'  Note that the Zenodo API restrains a maximum number of 10,000 grants to be retrieved. Consequently,
+    #'  Note that the Zenodo API restrains a maximum number of 10,000 records to be retrieved. Consequently,
     #'  not all grants can be listed from Zenodo, a query has to be specified.
-    #' @param size number of grants to be returned. By default equal to 1000.
+    #' @param size number of grants to be returned. By default equal to 500.
     #' @return list of grants as \code{data.frame} or \code{list}
-    getGrants = function(q = "", pretty = TRUE, size = 1000){
-      if(q=="") size = 10000
+    getGrants = function(q = "", pretty = TRUE, size = 500){
+      warnMsg = "Method 'getGrants' is deprecated, please use 'getAwards' instead!"
+      cli::cli_alert_warning(warnMsg)
+      self$WARN(warnMsg)
+      return(self$getAwards(q = q, pretty = pretty, size = size)) 
+    },
+    
+    #' @description Get Awards supported by Zenodo.
+    #' @param pretty Prettify the output. By default the argument \code{pretty} is set to 
+    #'    \code{TRUE} which will returns the list of awards as \code{data.frame}.
+    #'    Set \code{pretty = FALSE} to get the raw list of awards
+    #' @param q an ElasticSearch compliant query, object of class \code{character}. Default is emtpy.
+    #'  Note that the Zenodo API restrains a maximum number of 10,000 records to be retrieved. Consequently,
+    #'  not all awards can be listed from Zenodo, a query has to be specified.
+    #' @param size number of awards to be returned. By default equal to 500.
+    #' @return list of awards as \code{data.frame} or \code{list}
+    getAwards = function(q = "", pretty = TRUE, size = 500){
       page <- 1
-      lastPage <- FALSE
-      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants/?q=%s&size=%s&page=%s", URLencode(q), size, page), 
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("awards?q=%s&size=%s&page=%s", URLencode(q), size, page), 
+                                  accept = "application/json",
                                   token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
       out <- NULL
       if(zenReq$getStatus() == 200){
         resp <- zenReq$getResponse()
-        grants <- resp$hits$hits
+        awards <- resp$hits$hits
         total <- resp$hits$total
         if(total > 10000){
-          self$WARN(sprintf("Total of %s records found: the Zenodo API limits to a maximum of 10,000 records!", total)) 
+          warnMsg = sprintf("Total of %s records found: the Zenodo API limits to a maximum of 10,000 records!", total)
+          cli::cli_alert_warning(warnMsg)
+          self$WARN(warnMsg) 
         }
         total_remaining <- total
-        hasGrants <- length(grants)>0
-        while(hasGrants){
-          out <- c(out, grants)
-          if(!is.null(grants)){
-            self$INFO(sprintf("Successfully fetched list of grants - page %s", page))
-            if(q!=""){
-              page <- page+1  #next
-              total_remaining <- total_remaining-length(grants)
-            }else{
-              break;
-            }
-          }else{
-            lastPage <- TRUE
+        hasAwards <- length(awards)>0
+        while(hasAwards){
+          out <- c(out, awards)
+          total_remaining <- total_remaining-length(awards)
+          if(total_remaining <= size) size = total_remaining
+          if(total_remaining == 0){
+            break
           }
-          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants/?q=%s&size=%s&page=%s", URLencode(q), size, page), 
+          
+          #next page
+          page = page+1
+          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("awards?q=%s&size=%s&page=%s", URLencode(q), size, page), 
+                                      accept = "application/json",
                                       token = self$getToken(),
                                       logger = self$loggerType)
           zenReq$execute()
           if(zenReq$getStatus() == 200){
             resp <- zenReq$getResponse()
-            grants <- resp$hits$hits
-            hasGrants <- length(grants)>0
-            if(lastPage) break;
+            awards <- resp$hits$hits
+            hasAwards <- length(awards)>0
           }else{
-            self$WARN(sprintf("Maximum allowed size for list of grants - page %s - attempt to decrease size", page))
-            size <- size-1
-            hasGrants <- TRUE
-            grants <- NULL
+            warnMsg = sprintf("Maximum allowed size for list of awards at page %s", page)
+            cli::cli_alert_warning(warnMsg)
+            self$WARN(warnMsg)
+            break
           }
         }
-        self$INFO("Successfully fetched list of grants!")
+        infoMsg = "Successfully fetched list of awards!"
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
         out <- zenReq$getResponse()
-        self$ERROR(sprintf("Error while fetching grants: %s", out$message))
+        errMsg = sprintf("Error while fetching awards: %s", out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
         for(error in out$errors){
-          self$ERROR(sprintf("Error: %s - %s", error$field, error$message))
+          errMsg = sprintf("Error: %s - %s", error$field, error$message)
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
         }
       }
       
       if(pretty){
         out = do.call("rbind", lapply(out,function(x){
           rec = data.frame(
-            id = x$metadata$internal_id,
-            code = x$metadata$code,
-            title = x$metadata$title,
-            startdate = x$metadata$startdate,
-            enddate = x$metadata$enddate,
-            url = x$metadata$url,
+            id = x$id,
+            number = x$number,
+            title = x$title[[1]],
             created = x$created,
             updated = x$updated,
-            funder_country = x$metadata$funder$country,
-            funder_doi = x$metadata$funder$doi,
-            funder_name = x$metadata$funder$name,
-            funder_type = x$metadata$funder$type,
-            funder_subtype = x$metadata$funder$subtype,
-            funder_parent_country = if(length(x$metadata$funder$parent)>0) x$metadata$funder$parent$country else NA,
-            funder_parent_doi = if(length(x$metadata$funder$parent)>0) x$metadata$funder$parent$doi else NA,
-            funder_parent_name = if(length(x$metadata$funder$parent)>0) x$metadata$funder$parent$name else NA,
-            funder_parent_type = if(length(x$metadata$funder$parent)>0) x$metadata$funder$parent$type else NA,
-            funder_parent_subtype = if(length(x$metadata$funder$parent)>0) x$metadata$funder$parent$subtype else NA,
+            funder_id = x$funder$id,
+            funder_name = x$funder$name,
+            program = if(!is.null(x$program)) x$program else NA,
             stringsAsFactors = FALSE
           )
           return(rec)
@@ -330,30 +826,181 @@ ZenodoManager <-  R6Class("ZenodoManager",
       return(out)
     },
     
-    #' @description Get grants by name.
+    #' @description Get grants by name. DEPRECATED: replaced by \code{getAwardByName} 
     #' @param name name
     #' @param pretty Prettify the output. By default the argument \code{pretty} is set to 
     #'    \code{TRUE} which will returns the list of grants as \code{data.frame}.
     #'    Set \code{pretty = FALSE} to get the raw list of grants
     #' @return list of grants as \code{data.frame} or \code{list}
     getGrantsByName = function(name, pretty = TRUE){
-      query = sprintf("title:%s", URLencode(paste0("\"",name,"\"")))
-      self$getGrants(q = query, pretty = pretty)
+      warnMsg = "Method 'getGrantsByName' is deprecated, please use 'getAwardsByName' instead!"
+      cli::cli_alert_warning(warnMsg)
+      self$WARN(warnMsg)
+      return(self$getAwardsByName(name = name, pretty = pretty))
     },
     
-    #' @description Get grant by Id.
+    #' @description Get awards by name.
+    #' @param name name
+    #' @param pretty Prettify the output. By default the argument \code{pretty} is set to 
+    #'    \code{TRUE} which will returns the list of awards as \code{data.frame}.
+    #'    Set \code{pretty = FALSE} to get the raw list of awards
+    #' @return list of awards as \code{data.frame} or \code{list}
+    getAwardsByName = function(name, pretty = TRUE){
+      query = sprintf("title.en:%s", URLencode(paste0("\"",name,"\"")))
+      self$getAwards(q = query, pretty = pretty)
+    },
+    
+    #' @description Get grant by Id.DEPRECATED: replaced by \code{getAwardById} 
     #' @param id grant id
     #' @return the grant
     getGrantById = function(id){
-      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("grants/%s",id),
+      warnMsg = "Method 'getGrantById' is deprecated, please use 'getAwardById' instead!"
+      cli::cli_alert_warning(warnMsg)
+      self$WARN(warnMsg)
+      return(self$getAwardById(id))
+    },
+    
+    #' @description Get award by Id. 
+    #' @param id award id
+    #' @return the award
+    getAwardById = function(id){
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("awards/%s",id),
+                                  accept = "application/json",
                                   token= self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
       out <- zenReq$getResponse()
       if(zenReq$getStatus() == 200){
-        self$INFO(sprintf("Successfully fetched grant '%s'",id))
+        infoMsg = sprintf("Successfully fetched award '%s'",id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
-        self$ERROR(sprintf("Error while fetching grant '%s': %s", id, out$message))
+        errMsg = sprintf("Error while fetching award '%s': %s", id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- NULL
+      }
+      return(out)
+    },
+    
+    #Special vocabulary/Affiliations 
+    #------------------------------------------------------------------------------------------
+    
+    #' @description Get Affiliations supported by Zenodo.
+    #' @param pretty Prettify the output. By default the argument \code{pretty} is set to 
+    #'    \code{TRUE} which will returns the list of affiliations as \code{data.frame}.
+    #'    Set \code{pretty = FALSE} to get the raw list of affiliations
+    #' @param q an ElasticSearch compliant query, object of class \code{character}. Default is emtpy.
+    #'  Note that the Zenodo API restrains a maximum number of 10,000 records to be retrieved. Consequently,
+    #'  not all affiliations can be listed from Zenodo, a query has to be specified.
+    #' @param size number of affiliations to be returned. By default equal to 500.
+    #' @return list of affiliations as \code{data.frame} or \code{list}
+    getAffiliations = function(q = "", pretty = TRUE, size = 500){
+      page <- 1
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("affiliations?q=%s&size=%s&page=%s", URLencode(q), size, page), 
+                                  accept = "application/json",
+                                  token = self$getToken(),
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- NULL
+      if(zenReq$getStatus() == 200){
+        resp <- zenReq$getResponse()
+        affiliations <- resp$hits$hits
+        total <- resp$hits$total
+        if(total > 10000){
+          warnMsg = sprintf("Total of %s records found: the Zenodo API limits to a maximum of 10,000 records!", total)
+          cli::cli_alert_warning(warnMsg)
+          self$WARN(warnMsg) 
+        }
+        total_remaining <- total
+        hasAwards <- length(affiliations)>0
+        while(hasAwards){
+          out <- c(out, affiliations)
+          total_remaining <- total_remaining-length(affiliations)
+          if(total_remaining <= size) size = total_remaining
+          if(total_remaining == 0){
+            break
+          }
+          
+          #next page
+          page = page+1
+          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("affiliations?q=%s&size=%s&page=%s", URLencode(q), size, page), 
+                                      accept = "application/json",
+                                      token = self$getToken(),
+                                      logger = self$loggerType)
+          zenReq$execute()
+          if(zenReq$getStatus() == 200){
+            resp <- zenReq$getResponse()
+            affiliations <- resp$hits$hits
+            hasAwards <- length(affiliations)>0
+          }else{
+            warnMsg = sprintf("Maximum allowed size for list of affiliations at page %s", page)
+            cli::cli_alert_warning(warnMsg)
+            self$WARN(warnMsg)
+            break
+          }
+        }
+        infoMsg = "Successfully fetched list of affiliations!"
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+      }else{
+        out <- zenReq$getResponse()
+        errMsg = sprintf("Error while fetching affiliations: %s", out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        for(error in out$errors){
+          errMsg = sprintf("Error: %s - %s", error$field, error$message)
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
+        }
+      }
+      
+      if(pretty){
+        out = do.call("rbind", lapply(out,function(x){
+          rec = data.frame(
+            id = x$id,
+            acronym = if(!is.null(x$acronym)) x$acronym else NA,
+            name = if(!is.null(x$name)) x$name else NA,
+            title = x$title[[1]],
+            created = x$created,
+            updated = x$updated,
+            stringsAsFactors = FALSE
+          )
+          return(rec)
+        }))
+      }
+      return(out)
+    },
+    
+    #' @description Get affiliations by name.
+    #' @param name name
+    #' @param pretty Prettify the output. By default the argument \code{pretty} is set to 
+    #'    \code{TRUE} which will returns the list of affiliations as \code{data.frame}.
+    #'    Set \code{pretty = FALSE} to get the raw list of affiliations
+    #' @return list of affiliations as \code{data.frame} or \code{list}
+    getAffiliationByName = function(name, pretty = TRUE){
+      query = sprintf("title.en:%s", URLencode(paste0("\"",name,"\"")))
+      self$getAffiliations(q = query, pretty = pretty)
+    },
+    
+    #' @description Get affiliation by Id. 
+    #' @param id affiliation id
+    #' @return the affiliation
+    getAffiliationById = function(id){
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("affiliations/%s",id),
+                                  accept = "application/json",
+                                  token= self$getToken(),
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successfully fetched affiliation '%s'",id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+      }else{
+        errMsg = sprintf("Error while fetching affiliation '%s': %s", id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
         out <- NULL
       }
       return(out)
@@ -367,15 +1014,14 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #'    \code{TRUE} which will returns the list of funders as \code{data.frame}.
     #'    Set \code{pretty = FALSE} to get the raw list of funders
     #' @param q an ElasticSearch compliant query, object of class \code{character}. Default is emtpy.
-    #'  Note that the Zenodo API restrains a maximum number of 10,000 funders to be retrieved. Consequently,
+    #'  Note that the Zenodo API restrains a maximum number of 10,000 records to be retrieved. Consequently,
     #'  not all funders can be listed from Zenodo, a query has to be specified.
-    #' @param size number of funders to be returned. By default equal to 1000.
+    #' @param size number of funders to be returned. By default equal to 500
     #' @return list of funders as \code{data.frame} or \code{list}
-    getFunders = function(q = "", pretty = TRUE, size = 1000){
-      if(q=="") size = 10000
+    getFunders = function(q = "", pretty = TRUE, size = 500){
       page <- 1
-      lastPage <- FALSE
-      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders/?q=%s&size=%s&page=%s", URLencode(q), size, page), 
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders?q=%s&size=%s&page=%s", URLencode(q), size, page), 
+                                  accept = "application/json",
                                   token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
@@ -385,24 +1031,25 @@ ZenodoManager <-  R6Class("ZenodoManager",
         funders <- resp$hits$hits
         total <- resp$hits$total
         if(total > 10000){
-          self$WARN(sprintf("Total of %s records found: the Zenodo API limits to a maximum of 10,000 records!", total)) 
+          warnMsg = sprintf("Total of %s records found: the Zenodo API limits to a maximum of 10,000 records!", total)
+          cli::cli_alert_warning(warnMsg)
+          self$WARN(warnMsg) 
         }
         total_remaining <- total
         hasFunders <- length(funders)>0
         while(hasFunders){
           out <- c(out, funders)
-          if(!is.null(funders)){
-            self$INFO(sprintf("Successfully fetched list of funders - page %s", page))
-            if(q != ""){
-              page <- page+1  #next
-              total_remaining <- total_remaining-length(funders)
-            }else{
-              break;
-            }
-          }else{
-            lastPage <- TRUE
+          self$INFO(sprintf("Successfully fetched list of funders - page %s", page))
+          total_remaining <- total_remaining-length(funders)
+          if(total_remaining <= size) size = total_remaining
+          if(total_remaining == 0){
+            break
           }
-          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders/?q=%s&size=%s&page=%s", URLencode(q), size, page), 
+          
+          #next page
+          page <- page+1
+          zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders?q=%s&size=%s&page=%s", URLencode(q), size, page), 
+                                      accept = "application/json",
                                       token = self$getToken(),
                                       logger = self$loggerType)
           zenReq$execute()
@@ -410,32 +1057,42 @@ ZenodoManager <-  R6Class("ZenodoManager",
             resp <- zenReq$getResponse()
             funders <- resp$hits$hits
             hasFunders <- length(funders)>0
-            if(lastPage) break;
           }else{
-            self$WARN(sprintf("Maximum allowed size for list of funders - page %s - attempt to decrease size", page))
-            size <- size-1
-            hasFunders <- TRUE
-            funders <- NULL
+            warnMsg = sprintf("Maximum allowed size for list of communities reached at page %s", page)
+            cli::cli_alert_warning(warnMsg)
+            self$WARN(warnMsg)
+            break
           }
         }
-        self$INFO("Successfully fetched list of funders!")
+        infoMsg = "Successfully fetched list of funders!"
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
         out <- zenReq$getResponse()
-        self$ERROR(sprintf("Error while fetching funders: %s", out$message))
+        errMsg = sprintf("Error while fetching funders: %s", out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
         for(error in out$errors){
-          self$ERROR(sprintf("Error: %s - %s", error$field, error$message))
+          errMsg = sprintf("Error: %s - %s", error$field, error$message)
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
         }
       }
       
       if(pretty){
-        out = do.call("rbind", lapply(out,function(x){
+        out = do.call("rbind.fill", lapply(out,function(x){
+          
+          identifiers = do.call("cbind", lapply(x$identifiers, function(identifier){
+            out_id = data.frame(scheme = identifier$identifier, stringsAsFactors = F)
+            names(out_id) = identifier$scheme
+            return(out_id)
+          }))
+          
           rec = data.frame(
-            id = x$metadata$doi,
-            doi = x$metadata$doi,
-            country = x$metadata$country,
-            name = x$metadata$name,
-            type = x$metadata$type,
-            subtype = x$metadata$subtype,
+            id = x$id,
+            country = x$country,
+            name = x$name,
+            identifiers,
             created = x$created,
             updated = x$updated,
             stringsAsFactors = FALSE
@@ -462,14 +1119,19 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @return the funder
     getFunderById = function(id){
       zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("funders/%s",id),
+                                  accept = "application/json",
                                   token= self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
       out <- zenReq$getResponse()
       if(zenReq$getStatus() == 200){
-        self$INFO(sprintf("Successfully fetched funder '%s'",id))
+        infoMsg = sprintf("Successfully fetched funder '%s'",id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
-        self$ERROR(sprintf("Error while fetching funder '%s': %s", id, out$message))
+        errMsg = sprintf("Error while fetching funder '%s': %s", id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
         out <- NULL
       }
       return(out)
@@ -478,14 +1140,13 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #Depositions
     #------------------------------------------------------------------------------------------
     
-    #' @description Get the list of Zenodo records deposited in your Zenodo workspace. By defaut
-    #'    the list of depositions will be returned by page with a size of 10 results per
-    #'    page (default size of the Zenodo API). The parameter \code{q} allows to specify
-    #'    an ElasticSearch-compliant query to filter depositions (default query is empty 
-    #'    to retrieve all records). The argument \code{all_versions}, if set to TRUE allows
-    #'    to get all versions of records as part of the depositions list. The argument \code{exact}
-    #'    specifies that an exact matching is wished, in which case paginated search will be
-    #'    disabled (only the first search page will be returned).
+    #' @description Get the list of Zenodo records deposited in your Zenodo workspace (user records). By default
+    #'    the list of depositions will be returned by page with a size of 10 results per page (default size of 
+    #'    the Zenodo API). The parameter \code{q} allows to specify an ElasticSearch-compliant query to filter 
+    #'    depositions (default query is empty to retrieve all records). The argument \code{all_versions}, if set 
+    #'    to TRUE allows to get all versions of records as part of the depositions list. The argument \code{exact}
+    #'    specifies that an exact matching is wished, in which case paginated search will be disabled (only the first 
+    #'    search page will be returned).
     #'    Examples of ElasticSearch queries for Zenodo can be found at \href{https://help.zenodo.org/guides/search/}{https://help.zenodo.org/guides/search/}.
     #' @param q Elastic-Search-compliant query, as object of class \code{character}. Default is ""
     #' @param size number of depositions to be retrieved per request (paginated). Default is 10
@@ -496,13 +1157,13 @@ ZenodoManager <-  R6Class("ZenodoManager",
     getDepositions = function(q = "", size = 10, all_versions = FALSE, exact = TRUE,
                               quiet = FALSE){
       page <- 1
-      baseUrl <- "deposit/depositions"
+      baseUrl <- "user/records"
       
       #set in #72, now re-deactivated through #76 (due to Zenodo server-side changes)
       #if(!private$sandbox) baseUrl <- paste0(baseUrl, "/")
       
       req <- sprintf("%s?q=%s&size=%s&page=%s", baseUrl, URLencode(q), size, page)
-      if(all_versions) req <- paste0(req, "&all_versions=1")
+      if(all_versions) req <- paste0(req, "&allversions=1")
       zenReq <- ZenodoRequest$new(private$url, "GET", req, 
                                   token = self$getToken(),
                                   logger = if(quiet) NULL else self$loggerType)
@@ -510,10 +1171,27 @@ ZenodoManager <-  R6Class("ZenodoManager",
       out <- NULL
       if(zenReq$getStatus() == 200){
         resp <- zenReq$getResponse()
-        hasRecords <- length(resp)>0
+        records <- resp$hits$hits
+        total <- resp$hits$total
+        if(total > 10000){
+          warnMsg = sprintf("Total of %s records found: the Zenodo API limits to a maximum of 10,000 records!", total)
+          cli::cli_alert_warning(warnMsg)
+          self$WARN(warnMsg) 
+        }
+        total_remaining <- total
+        hasRecords <- length(records)>0
         while(hasRecords){
-          out <- c(out, lapply(resp, ZenodoRecord$new))
-          if(!quiet) self$INFO(sprintf("Successfully fetched list of depositions - page %s", page))
+          out <- c(out, lapply(records, ZenodoRecord$new))
+          if(!quiet){
+            infoMsg = sprintf("Successfully fetched list of depositions (user records) - page %s", page)
+            cli::cli_alert_success(infoMsg)
+            self$INFO(infoMsg)
+          }
+          total_remaining <- total_remaining-length(records)
+          if(total_remaining <= size) size = total_remaining
+          if(total_remaining == 0){
+            break
+          }
           
           if(exact){
             hasRecords <- FALSE
@@ -521,22 +1199,44 @@ ZenodoManager <-  R6Class("ZenodoManager",
             #next
             page <- page+1
             nextreq <- sprintf("%s?q=%s&size=%s&page=%s", baseUrl, q, size, page)
-            if(all_versions) nextreq <- paste0(nextreq, "&all_versions=1")
+            if(all_versions) nextreq <- paste0(nextreq, "&allversions=1")
             zenReq <- ZenodoRequest$new(private$url, "GET", nextreq, 
                                         token = self$getToken(),
                                         logger = if(quiet) NULL else self$loggerType)
             zenReq$execute()
             resp <- zenReq$getResponse()
-            hasRecords <- length(resp)>0
+            if(zenReq$getStatus() == 200){
+              resp <- zenReq$getResponse()
+              records <- resp$hits$hits
+              hasRecords <- length(records)>0
+            }else{
+              if(!quiet){
+                warnMsg = sprintf("Maximum allowed size for list of depositions (user records) at page %s", page)
+                cli::cli_alert_warning(warnMsg)
+                self$WARN(warnMsg)
+              }
+              break
+            }
           }
         }
-        if(!quiet) self$INFO("Successfully fetched list of depositions!")
+        if(!quiet){
+          infoMsg = "Successfully fetched list of depositions (user records)!"
+          cli::cli_alert_success(infoMsg)
+          self$INFO(infoMsg)
+        }
       }else{
         out <- zenReq$getResponse()
-        if(!quiet) self$ERROR(sprintf("Error while fetching depositions: %s", out$message))
-        for(error in out$errors){
-          self$ERROR(sprintf("Error: %s - %s", error$field, error$message))
+        if(!quiet){
+          errMsg = sprintf("Error while fetching depositions (user records): %s", out$message)
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
+          for(error in out$errors){
+            errMsg = sprintf("Error: %s - %s", error$field, error$message)
+            cli::cli_alert_danger(errMsg)
+            self$ERROR(errMsg)
+          }
         }
+        
       }
       return(out)
     },
@@ -555,27 +1255,36 @@ ZenodoManager <-  R6Class("ZenodoManager",
           result <- NULL
         }else{
           result <- result[[which(conceptdois == conceptdoi)[1]]]
-          self$INFO(sprintf("Successfully fetched record for concept DOI '%s'!", conceptdoi))
+          infoMsg = sprintf("Successfully fetched record for concept DOI '%s'!", conceptdoi)
+          cli::cli_alert_success(infoMsg)
+          self$INFO(infoMsg)
         }
       }else{
         result <- NULL
       }
-      if(is.null(result)) self$WARN(sprintf("No record for concept DOI '%s'!", conceptdoi))
+      if(is.null(result)){
+        warnMsg = sprintf("No record for concept DOI '%s'!", conceptdoi)
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+      }
       if(is.null(result)){
         #try to get record by id
         if( regexpr("zenodo", conceptdoi)>0){
           conceptrecid <- unlist(strsplit(conceptdoi, "zenodo."))[2]
-          self$INFO(sprintf("Try to get deposition by Zenodo specific record id '%s'", conceptrecid))
+          infoMsg = sprintf("Try to get deposition by Zenodo specific record id '%s'", conceptrecid)
+          cli::cli_alert_info(infoMsg)
+          self$INFO(infoMsg)
           conceptrec <- self$getDepositionByConceptId(conceptrecid)
-          last_doi <- tail(conceptrec$getVersions(),1L)$doi
-          if(length(last_doi)==0) {
-            if(nzchar(conceptrec$metadata$doi)){
-               last_doi = conceptrec$metadata$doi
-            }else{
-              last_doi = conceptrec$metadata$prereserve_doi$doi
-            }
-          }
-          result <- self$getDepositionByDOI(last_doi)
+          result = conceptrec
+          # last_doi <- tail(conceptrec$getVersions(),1L)$doi
+          # if(length(last_doi)==0) {
+          #   if(nzchar(conceptrec$metadata$doi)){
+          #      last_doi = conceptrec$metadata$doi
+          #   }else{
+          #     last_doi = conceptrec$metadata$prereserve_doi$doi
+          #   }
+          # }
+          # result <- self$getDepositionByDOI(last_doi)
         }
       }
       return(result)
@@ -589,20 +1298,28 @@ ZenodoManager <-  R6Class("ZenodoManager",
       result <- self$getDepositions(q = query, all_versions = TRUE, exact = TRUE)
       if(length(result)>0){
         result <- result[[1]]
-        if(result$doi == doi){
-          self$INFO(sprintf("Successfully fetched record for DOI '%s'!",doi))
+        if(result$getDOI() == doi){
+          infoMsg = sprintf("Successfully fetched record for DOI '%s'!",doi)
+          cli::cli_alert_success(infoMsg)
+          self$INFO(infoMsg)
         }else{
           result <- NULL
         }
       }else{
         result <- NULL
       }
-      if(is.null(result)) self$WARN(sprintf("No record for DOI '%s'!",doi))
+      if(is.null(result)){
+        warnMsg = sprintf("No record for DOI '%s'!",doi)
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+      }
       if(is.null(result)){
         #try to get record by id
         if( regexpr("zenodo", doi)>0){
           recid <- unlist(strsplit(doi, "zenodo."))[2]
-          self$INFO(sprintf("Try to get deposition by Zenodo specific record id '%s'", recid))
+          infoMsg = sprintf("Try to get deposition by Zenodo specific record id '%s'", recid)
+          cli::cli_alert_info(infoMsg)
+          self$INFO(infoMsg)
           result <- self$getDepositionById(recid)
         }
       }
@@ -613,19 +1330,34 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @param recid the record ID, object of class \code{character}
     #' @return an object of class \code{ZenodoRecord} if record does exist, NULL otherwise
     getDepositionById = function(recid){
-      query <- sprintf("recid:%s", recid)
-      result <- self$getDepositions(q = query, all_versions = TRUE, exact = TRUE)
-      if(length(result)>0){
-        result <- result[[1]]
-        if(result$id == recid){
-          self$INFO(sprintf("Successfully fetched record for id '%s'!",recid))
-        }else{
-          result <- NULL
-        }
+      request = sprintf("records/%s/draft", recid)
+      zenReq <- ZenodoRequest$new(private$url, "GET", request,
+                                  token = self$getToken(), 
+                                  logger = self$loggerType)
+      zenReq$execute()
+      result <- NULL
+      if(zenReq$getStatus() == 200){
+        result = ZenodoRecord$new(obj = zenReq$getResponse())
+        infoMsg = sprintf("Successfuly fetched record for id %s", recid)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
-        result <- NULL
+        out <- zenReq$getResponse()
+        errMsg = sprintf("Error while fetching record: %s", out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        for(error in out$errors){
+          errMsg = sprintf("Error: %s - %s", error$field, error$message)
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
+        }
       }
-      if(is.null(result)) self$WARN(sprintf("No record for id '%s'!",recid))
+      
+      if(is.null(result)){
+        warnMsg = sprintf("No record for id '%s'!",recid)
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+      }
       return(result)
     },
     
@@ -637,28 +1369,35 @@ ZenodoManager <-  R6Class("ZenodoManager",
       result <- self$getDepositions(q = query, all_versions = TRUE, exact = TRUE)
       if(length(result)>0){
         result <- result[[1]]
-        if(result$conceptrecid == conceptrecid){
-          self$INFO(sprintf("Successfully fetched record for concept id '%s'!",conceptrecid))
+        if(result$getConceptId() == conceptrecid){
+          infoMsg = sprintf("Successfully fetched record for concept id '%s'!",conceptrecid)
+          cli::cli_alert_success(infoMsg)
+          self$INFO(infoMsg)
         }else{
           result <- NULL
         }
       }else{
         result <- NULL
       }
-      if(is.null(result)) self$WARN(sprintf("No record for concept id '%s'!",conceptrecid))
+      if(is.null(result)){
+        warnMsg = sprintf("No record for concept id '%s'!",conceptrecid)
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+      }
       return(result)
     },
     
     #' @description Deposits a record on Zenodo.
     #' @param record the record to deposit, object of class \code{ZenodoRecord}
+    #' @param reserveDOI reserve DOI. By default \code{TRUE}
     #' @param publish object of class \code{logical} indicating if record has to be published (default \code{FALSE}). 
     #'   Can be set to \code{TRUE} (to use CAUTIOUSLY, only if you want to publish your record)
-    #' @return \code{TRUE} if deposited (and eventually published), \code{FALSE} otherwise
-    depositRecord = function(record, publish = FALSE){
+    #' @return object of class \code{ZenodoRecord}
+    depositRecord = function(record, reserveDOI = TRUE, publish = FALSE){
       data <- record
       type <- ifelse(is.null(record$id), "POST", "PUT")
-      request <- ifelse(is.null(record$id), "deposit/depositions", 
-                        sprintf("deposit/depositions/%s", record$id))
+      request <- ifelse(is.null(record$id), "records", 
+                        sprintf("records/%s/draft", record$id))
       zenReq <- ZenodoRequest$new(private$url, type, request, data = data,
                                   token = self$getToken(), 
                                   logger = self$loggerType)
@@ -666,12 +1405,30 @@ ZenodoManager <-  R6Class("ZenodoManager",
       out <- NULL
       if(zenReq$getStatus() %in% c(200,201)){
         out <- ZenodoRecord$new(obj = zenReq$getResponse())
-        self$INFO("Successful record deposition")
+        infoMsg = "Successful record deposition"
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+        
+        if(reserveDOI){
+          if(is.null(record$pids$doi)){
+            out <- self$reserveDOI(out)
+          }else{
+            warnMsg = sprintf("Existing DOI (%s) for record %s. Aborting DOI reservation!", record$pids$doi$identifier, out$id)
+            cli::cli_alert_warning(warnMsg)
+            self$WARN(warnMsg)
+          }
+          
+        }
+        
       }else{
         out <- zenReq$getResponse()
-        self$ERROR(sprintf("Error while depositing record: %s", out$message))
+        errMsg = sprintf("Error while depositing record: %s", out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
         for(error in out$errors){
-          self$ERROR(sprintf("Error: %s - %s", error$field, error$message))
+          errMsg = sprintf("Error: %s - %s", error$field, error$message)
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
         }
       }
       
@@ -682,8 +1439,65 @@ ZenodoManager <-  R6Class("ZenodoManager",
       return(out)
     },
     
-    #' @description Deposits a record version on Zenodo. For details about the behavior of this function, 
-    #'   see \href{https://developers.zenodo.org/#new-version}{https://developers.zenodo.org/#new-version}
+    #'@description Reserves a DOI for a deposition (draft record)
+    #' @param record the record to deposit, object of class \code{ZenodoRecord}
+    #'@return object of class \code{ZenodoRecord}
+    reserveDOI = function(record){
+      request <- sprintf("records/%s/draft/pids/doi", record$id)
+      zenReq <- ZenodoRequest$new(private$url, "POST", request, data = NULL,
+                                  token = self$getToken(), 
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- NULL
+      if(zenReq$getStatus() == 201){
+        out <- ZenodoRecord$new(obj = zenReq$getResponse())
+        infoMsg = sprintf("Successful reserved DOI for record %s", record$id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+      }else{
+        out <- zenReq$getResponse()
+        errMsg = sprintf("Error while reserving DOI for record %s: %s", record$id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        for(error in out$errors){
+          errMsg = sprintf("Error: %s - %s", error$field, error$message)
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
+        }
+      }
+      return(out)
+    },
+    
+    #'@description Reserves a DOI for a deposition (draft record)
+    #' @param record the record for which DOI has to be deleted, object of class \code{ZenodoRecord}
+    #'@return object of class \code{ZenodoRecord}
+    deleteDOI = function(record){
+      request <- sprintf("records/%s/draft/pids/doi", record$id)
+      zenReq <- ZenodoRequest$new(private$url, "DELETE", request, data = NULL,
+                                  token = self$getToken(), 
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- NULL
+      if(zenReq$getStatus() == 200){
+        out <- ZenodoRecord$new(obj = zenReq$getResponse())
+        infoMsg = sprintf("Successful deleted DOI for record %s", record$id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+      }else{
+        out <- zenReq$getResponse()
+        errMsg = sprintf("Error while deleting DOI for record %s: %s", record$id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        for(error in out$errors){
+          errMsg = sprintf("Error: %s - %s", error$field, error$message)
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
+        }
+      }
+      return(out)
+    },
+    
+    #' @description Deposits a record version on Zenodo.
     #' @param record the record version to deposit, object of class \code{ZenodoRecord}
     #' @param delete_latest_files object of class \code{logical} indicating if latest files have to be deleted. Default is \code{TRUE}
     #' @param files a list of files to be uploaded with the new record version
@@ -691,46 +1505,60 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @return \code{TRUE} if deposited (and eventually published), \code{FALSE} otherwise
     depositRecordVersion = function(record, delete_latest_files = TRUE, files = list(), publish = FALSE){
       type <- "POST"
-      if(is.null(record$conceptrecid)){
-        stop("The record concept id cannot be null for creating a new version")
+      if(is.null(record$getConceptId())){
+        errMsg = "The record concept id cannot be null for creating a new version"
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        stop(errMsg)
       }
-      if(is.null(record$conceptdoi)){
-        stop("Concept DOI is null: a new version can only be added to a published record")
+      if(is.null(record$getConceptDOI())){
+        errMsg = "Concept DOI is null: a new version can only be added to a published record"
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        stop(errMsg)
       }
       
       #id of the last record
-      record_id <- unlist(strsplit(record$links$latest,"records/"))[[2]] 
+      record_id <- record$id
       
-      self$INFO(sprintf("Creating new version for record '%s' (concept DOI: '%s')", record_id, record$getConceptDOI()))
-      request <- sprintf("deposit/depositions/%s/actions/newversion", record_id)
+      infoMsg = sprintf("Creating new version for record '%s' (concept DOI: '%s')", record_id, record$getConceptDOI())
+      cli::cli_alert_info(infoMsg)
+      self$INFO(infoMsg)
+      request <- sprintf("records/%s/versions", record_id)
       zenReq <- ZenodoRequest$new(private$url, type, request, data = NULL,
                                   token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
       out <- NULL
       out_id <- NULL
-      if(zenReq$getStatus() %in% c(200,201)){
-        out <- zenReq$getResponse()
-        out_id <- unlist(strsplit(out$links$latest_draft,"depositions/"))[[2]]
-        out <-  self$getDepositionById(out_id)
-        self$INFO(sprintf("Successful new version record created for concept DOI '%s'", record$getConceptDOI()))
+      if(zenReq$getStatus() == 201){
+        out <- ZenodoRecord$new(obj =zenReq$getResponse())
+        out <-  self$getDepositionById(out$id)
+        infoMsg = sprintf("Successful new version record created for concept DOI '%s'", record$getConceptDOI())
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
         record$id <- out$id
         record$metadata$doi <- NULL
-        record$doi <- NULL
-        record$prereserveDOI(TRUE)
+        record$pids = list()
         out <- self$depositRecord(record)
         
         if(delete_latest_files){
-          self$INFO("Deleting files copied from latest record")
+          infoMsg = "Deleting files copied from latest record"
+          cli::cli_alert_info(infoMsg)
+          self$INFO(infoMsg)
           invisible(lapply(out$files, function(x){ 
-            self$deleteFile(out$id, x$id)
+            self$deleteFile(out$id, x$filename)
             Sys.sleep(0.6)
           }))
         }
         if(length(files)>0){
-          self$INFO("Upload files to new version")
+          infoMsg = "Upload files to new version"
+          cli::cli_alert_info(infoMsg)
+          self$INFO(infoMsg)
           for(f in files){
-            self$INFO(sprintf("Upload file '%s' to new version", f))
+            infoMsg = sprintf("Upload file '%s' to new version", f)
+            cli::cli_alert_info(infoMsg)
+            self$INFO(infoMsg)
             self$uploadFile(f, record = out)
           }
         }
@@ -741,9 +1569,13 @@ ZenodoManager <-  R6Class("ZenodoManager",
         
       }else{
         out <- zenReq$getResponse()
-        self$ERROR(sprintf("Error while creating new version: %s", out$message))
+        errMsg = sprintf("Error while creating new version: %s", out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
         for(error in out$errors){
-          self$ERROR(sprintf("Error: %s - %s", error$field, error$message))
+          errMsg = sprintf("Error: %s - %s", error$field, error$message)
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
         }
       }
       
@@ -754,17 +1586,21 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @param recordId the ID of the record to be deleted
     #' @return \code{TRUE} if deleted, \code{FALSE} otherwise
     deleteRecord = function(recordId){
-      zenReq <- ZenodoRequest$new(private$url, "DELETE", "deposit/depositions", 
-                                  data = recordId, token = self$getToken(),
+      zenReq <- ZenodoRequest$new(private$url, "DELETE", sprintf("records/%s/draft", recordId), 
+                                  token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
       out <- FALSE
       if(zenReq$getStatus() == 204){
         out <- TRUE
-        self$INFO(sprintf("Successful deleted record '%s'", recordId))
+        infoMsg = sprintf("Successful deleted record '%s'", recordId)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
         resp <- zenReq$getResponse()
-        self$ERROR(sprintf("Error while deleting record '%s': %s", recordId, resp$message))
+        errMsg = sprintf("Error while deleting record '%s': %s", recordId, resp$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
       }
       return(out)
     },
@@ -773,7 +1609,9 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @param doi the DOI of the record to be deleted
     #' @return \code{TRUE} if deleted, \code{FALSE} otherwise
     deleteRecordByDOI = function(doi){
-      self$INFO(sprintf("Deleting record with DOI '%s'", doi))
+      infoMsg =sprintf("Deleting record with DOI '%s'", doi)
+      cli::cli_alert_info(infoMsg)
+      self$INFO(infoMsg)
       deleted <- FALSE
       rec <- self$getDepositionByDOI(doi)
       if(!is.null(rec)){
@@ -791,7 +1629,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @return \code{TRUE} if all records have been deleted, \code{FALSE} otherwise
     deleteRecords = function(q = "", size = 10){
       records <- self$getDepositions(q = q, size = size)
-      records <- records[sapply(records, function(x){!x$submitted})]
+      records <- records[sapply(records, function(x){x$status == "draft"})]
       hasDraftRecords <- length(records)>0
       if(length(records)>0){
         record_ids <- sapply(records, function(x){x$id})
@@ -799,54 +1637,68 @@ ZenodoManager <-  R6Class("ZenodoManager",
         deleted.all <- deleted.all[is.na(deleted.all)]
         deleted <- all(deleted.all)
         if(!deleted){
-          self$ERROR("Error while deleting records")
+          errMsg = "Error while deleting records"
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
         }
       }
-      self$INFO("Successful deleted records")
+      infoMsg = "Successful deleted records"
+      cli::cli_alert_success(infoMsg)
+      self$INFO(infoMsg)
     },
     
     #' @description Creates an empty record in the Zenodo deposit. Returns the record
     #'    newly created in Zenodo, as an object of class \code{ZenodoRecord} with an 
     #'    assigned identifier.
+    #' @param reserveDOI reserve DOI. By default \code{TRUE}
     #' @return an object of class \code{ZenodoRecord}
-    createEmptyRecord = function(){
-      return(self$depositRecord(NULL))
+    createEmptyRecord = function(reserveDOI = TRUE){
+      return(self$depositRecord(NULL, reserveDOI = reserveDOI))
     },
     
     #' @description Unlocks a record already submitted. Required to edit metadata of a Zenodo record already published.
     #' @param recordId the ID of the record to unlock and set in editing mode.
     #' @return an object of class \code{ZenodoRecord}
     editRecord = function(recordId){
-      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("deposit/depositions/%s/actions/edit", recordId),
+      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("records/%s/draft", recordId),
                                   token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
       out <- NULL
       if(zenReq$getStatus() == 201){
         out <- ZenodoRecord$new(obj = zenReq$getResponse())
-        self$INFO(sprintf("Successful unlocked record '%s' for edition", recordId))
+        infoMsg = sprintf("Successful unlocked record '%s' for edition", recordId)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
         out <- zenReq$getResponse()
-        self$ERROR(sprintf("Error while unlocking record '%s' for edition: %s", recordId, out$message))
+        errMsg = sprintf("Error while unlocking record '%s' for edition: %s", recordId, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
       }
       return(out)
     },
     
-    #' @description Discards changes on a Zenodo record.
+    #' @description Discards changes on a Zenodo record. Deleting a draft for an unpublished 
+    #' record will remove the draft and associated files from the system. Deleting a draft for 
+    #' a published record will remove the draft but not the published record.
     #' @param recordId the ID of the record for which changes have to be discarded.
     #' @return an object of class \code{ZenodoRecord}
     discardChanges = function(recordId){
-      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("deposit/depositions/%s/actions/discard", recordId),
+      zenReq <- ZenodoRequest$new(private$url, "DELETE", sprintf("records/%s/draft", recordId),
                                   token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
-      out <- NULL
-      if(zenReq$getStatus() == 201){
-        out <- ZenodoRecord$new(obj = zenReq$getResponse())
-        self$INFO(sprintf("Successful discarded changes for record '%s' for edition", recordId))
+      out <- FALSE
+      if(zenReq$getStatus() == 204){
+        out <- TRUE
+        infoMsg = sprintf("Successful discarded changes for record '%s' for edition", recordId)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
-        out <- zenReq$getResponse()
-        self$ERROR(sprintf("Error while discarding record '%s' changes: %s", recordId, out$message))
+        errMsg = sprintf("Error while discarding record '%s' changes", recordId)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
       }
       return(out)
     },
@@ -855,105 +1707,218 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @param recordId the ID of the record to be published.
     #' @return an object of class \code{ZenodoRecord}
     publishRecord = function(recordId){
-      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("deposit/depositions/%s/actions/publish",recordId),
+      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("records/%s/draft/actions/publish",recordId),
                                   token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
       out <- NULL
       if(zenReq$getStatus() == 202){
         out <- ZenodoRecord$new(obj = zenReq$getResponse())
-        self$INFO(sprintf("Successful published record '%s'", recordId))
+        infoMsg = sprintf("Successful published record '%s'", recordId)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
         out <- zenReq$getResponse()
-        self$ERROR(sprintf("Error while publishing record '%s': %s", recordId, out$message))
+        errMsg = sprintf("Error while publishing record '%s': %s", recordId, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
       }
       return(out)
     },
+    
+    #File management
+    #------------------------------------------------------------------------------------------
     
     #' @description Get list of files attached to a Zenodo record.
     #' @param recordId the ID of the record.
     #' @return list of files
     getFiles = function(recordId){
-      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("deposit/depositions/%s/files", recordId), 
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("records/%s/draft/files", recordId),
+                                  accept = "application/json",
                                   token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
       out <- NULL
-      if(zenReq$getStatus() == 201){
-        out <- ZenodoRecord$new(obj = zenReq$getResponse())
-        self$INFO(sprintf("Successful fetched file(s) for record '%s'", recordId))
+      if(zenReq$getStatus() == 200){
+        resp <- zenReq$getResponse()
+        out <- resp$entries
+        infoMsg = sprintf("Successful fetched file(s) for record '%s'", recordId)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
         out <- zenReq$getResponse()
-        self$ERROR(sprintf("Error while fetching file(s) for record '%s': %s", recordId, out$message))
+        errMsg = sprintf("Error while fetching file(s) for record '%s': %s", recordId, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
       }
       return(out)
     },
     
-    #' @description Uploads a file to a Zenodo record
+    #' @description Get a file record metadata.
+    #' @param recordId the ID of the record.
+    #' @param filename filename
+    #' @return the file metadata
+    getFile = function(recordId, filename){
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("records/%s/draft/files/%s", recordId, filename),
+                                  accept = "application/json",
+                                  token = self$getToken(),
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successful fetched file metadata for record '%s' - filename '%s'", recordId, filename)
+        cli::cli_alert_success(infoMSg)
+        self$INFO(infoMsg)
+      }else{
+        errMsg = sprintf("Error while fetching file(s) for record '%s': %s", recordId, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+      }
+      return(out)
+    },
+    
+    #' @description Start a file upload. The method will create a key for the file to be uploaded
+    #' This method is essentially for internal purpose, and is called directly in \code{uploadFile}
+    #' for user convenience and for backward compatibility with the legacy Zenodo API.
+    #' @param path Local path of the file
+    #' @param recordId ID of the record
+    startFileUpload = function(path, recordId){
+      self$INFO(sprintf("Start upload procedure for file '%s'", path))
+      fileparts <- unlist(strsplit(path,"/"))
+      filename <- fileparts[length(fileparts)]
+    
+      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("records/%s/draft/files", recordId),
+                                  data = list(list(key = filename)), accept = "application/json",
+                                  token = self$getToken(), 
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- FALSE
+      if(zenReq$getStatus() == 201){
+        infoMsg = sprintf("Successfully started upload procedure for file '%s'", path)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+        out <- TRUE
+      }else{
+        errMsg = sprintf("Error while starting upload procedure for file '%s' in record %s: %s", 
+                         path, recordId, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+      }
+      return(out)
+    },
+    
+    #' @description Completes a file upload. The method will complete a file upload through a commit operation
+    #' This method is essentially for internal purpose, and is called directly in \code{uploadFile}
+    #' for user convenience and for backward compatibility with the legacy Zenodo API.
+    #' @param path Local path of the file
+    #' @param recordId ID of the record
+    completeFileUpload = function(path, recordId){
+      infoMsg = sprintf("Complete upload procedure for file '%s'", path)
+      cli::cli_alert_info(infoMsg)
+      self$INFO(infoMsg)
+      fileparts <- unlist(strsplit(path,"/"))
+      filename <- fileparts[length(fileparts)]
+
+      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("records/%s/draft/files/%s/commit", recordId, filename),
+                                  token = self$getToken(), accept = "application/json",
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- FALSE
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successfully completed upload procedure for file '%s'", path)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+        out <- TRUE
+      }else{
+        errMsg = sprintf("Error while completing upload procedure for file '%s' in record %s: %s", 
+                         path, recordId, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+      }
+      return(out)
+    },
+    
+    #' @description Uploads a file to a Zenodo record. With the new Zenodo Invenio RDM API, this method
+    #' internally calls \code{startFileUpload} to create a file record (with a filename key) at start, followed
+    #' by the actual file content upload. At this stage, the file upload is in "pending" status. At the end,
+    #' the function calls \code{completeFileUpload} to commit the file which status becomes "completed".
     #' @param path Local path of the file
     #' @param record object of class \code{ZenodoRecord}
-    #' @param recordId ID of the record. Deprecated, use \code{record} instead to take advantage of the new Zenodo bucket upload API.
-    uploadFile = function(path, record = NULL, recordId = NULL){
-      newapi = TRUE
-      if(!is.null(recordId)){
-        self$WARN("'recordId' argument is deprecated, please consider using 'record' argument giving an object of class 'ZenodoRecord'")
-        self$WARN("'recordId' is used, cannot determine new API record bucket, switch to old upload API...")
-        newapi <- FALSE
-      }
-      if(!is.null(record)) recordId <- record$id
+    uploadFile = function(path, record = NULL){
       fileparts <- unlist(strsplit(path,"/"))
       filename <- fileparts[length(fileparts)]
       if(!"bucket" %in% names(record$links)){
-        self$WARN(sprintf("No bucket link for record id = %s. Revert to old file upload API", recordId))
-        newapi <- FALSE
+        warnMsg = sprintf("No bucket link for record id = %s.", record$id)
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
       }
-      method <- if(newapi) "PUT"  else "POST"
-      if(newapi) self$INFO(sprintf("Using new file upload API with bucket: %s", record$links$bucket))
-      method_url <- if(newapi) sprintf("%s/%s", unlist(strsplit(record$links$bucket, "api/"))[2], URLencode(filename)) else sprintf("deposit/depositions/%s/files", recordId)
-      zenReq <- if(newapi){
-        ZenodoRequest$new(
-          private$url, method, method_url, 
-          data = upload_file(path),
-          progress = TRUE,
-          token = self$getToken(),
-          logger = self$loggerType
-        )
-      }else{
-        ZenodoRequest$new(
-          private$url, method, method_url, 
-          data = filename, file = upload_file(path),
-          progress = TRUE,
-          token = self$getToken(),
-          logger = self$loggerType
-        )
+      
+      #start upload (needed with new Invenio RDM API)
+      started = self$startFileUpload(path = path, recordId = record$id)
+      if(!started){
+        return(NULL)
       }
+        
+      #proceed with upload
+      method_url <- sprintf("records/%s/draft/files/%s/content", record$id, URLencode(filename))
+      zenReq <- ZenodoRequest$new(
+        private$url, "PUT", method_url, 
+        data = upload_file(path),
+        progress = TRUE,
+        token = self$getToken(),
+        logger = self$loggerType
+      )
       zenReq$execute()
       out <- NULL
       if(zenReq$getStatus() == 201){
-        out <- ZenodoRecord$new(obj = zenReq$getResponse())
-        self$INFO(sprintf("Successful uploaded file to record '%s'", recordId))
+        infoMsg = sprintf("Successful uploaded file to record '%s'", record$id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+        rec_files = self$getFiles(recordId = record$id)
+        out = rec_files$entries[sapply(rec_files$entries, function(x){x$key == filename})][[1]]
+        return(out)
       }else{
         out <- zenReq$getResponse()
-        self$ERROR(sprintf("Error while uploading file to record '%s': %s", recordId, out$message))
+        errMsg = sprintf("Error while uploading file to record '%s': %s", record$id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
       }
+      
+      #complete upload (needed with new Invenio RDM API)
+      completed = self$completeFileUpload(path = path, recordId = record$id)
+      if(!completed){
+        warnMsg = "File upload procedure completion failed, file is uploaded but remains in 'pending' status!"
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+      }else{
+        out$status = "completed"
+      }
+
       return(out)
     },
     
-    #' @description Deletes a file for a record
+    #' @description Deletes a file for a record. With the new Zenodo Invenio RDM API, if a file is
+    #' deleted although its status was pending, only the upload content is deleted, and the file upload
+    #' record (identified by a filename key) is kept. If the status was completed (with a file commit),
+    #' the file record is deleted. 
     #' @param recordId ID of the record
-    #' @param fileId ID of the file to delete
-    deleteFile = function(recordId, fileId){
-      zenReq <- ZenodoRequest$new(private$url, "DELETE", sprintf("deposit/depositions/%s/files", recordId), 
-                                  data = fileId, token = self$getToken(),
+    #' @param filename name of the file to be deleted
+    deleteFile = function(recordId, filename){
+      zenReq <- ZenodoRequest$new(private$url, "DELETE", sprintf("records/%s/draft/files/%s", recordId, filename), 
+                                  token = self$getToken(),
                                   logger = self$loggerType)
       zenReq$execute()
       out <- FALSE
       if(zenReq$getStatus() == 204){
         out <- TRUE
-        self$INFO(sprintf("Successful deleted file from record '%s'", recordId))
+        infoMsg = sprintf("Successful deleted file from record '%s'", recordId)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
         out <- zenReq$getResponse()
-        self$ERROR(sprintf("Error while deleting file from record '%s': %s", recordId, out$message))
+        errMsg = sprintf("Error while deleting file from record '%s': %s", recordId, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
       }
       return(out)
     },
@@ -976,10 +1941,27 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @param exact object of class \code{logical} indicating if exact matching has to be applied. Default is \code{TRUE}
     #' @param quiet object of class \code{logical} indicating if logs have to skipped. Default is \code{FALSE}
     #' @return a list of \code{ZenodoRecord}
-    getRecords = function(q = "", size = 10, all_versions = FALSE, exact = FALSE){
+    getRecords = function(q = "", size = 10, all_versions = FALSE, exact = TRUE){
       page <- 1
-      req <- sprintf("records/?q=%s&size=%s&page=%s", URLencode(q), size, page)
-      if(all_versions) req <- paste0(req, "&all_versions=1")
+      req <- sprintf("records?q=%s&size=10page=%s", URLencode(q), page)
+      if(all_versions) req <- paste0(req, "&allversions=1")
+      zenReq <- ZenodoRequest$new(private$url, "GET", req, 
+                                  token = self$getToken(),
+                                  logger = NULL)
+      zenReq$execute()
+      total = 0
+      if(zenReq$getStatus() == 200){
+        resp <- zenReq$getResponse()
+        total <- resp$hits$total
+        if(total > 10000){
+          warnMsg = sprintf("Total of %s records found: the Zenodo API limits to a maximum of 10,000 records!", total)
+          cli::cli_alert_warning(warnMsg)
+          self$WARN(warnMSg) 
+        }
+      }
+      
+      req <- sprintf("records?q=%s&size=%s&page=%s", URLencode(q), size, page)
+      if(all_versions) req <- paste0(req, "&allversions=1")
       zenReq <- ZenodoRequest$new(private$url, "GET_WITH_CURL", req, 
                                   token = self$getToken(),
                                   logger = self$loggerType)
@@ -987,32 +1969,55 @@ ZenodoManager <-  R6Class("ZenodoManager",
       out <- NULL
       if(zenReq$getStatus() == 200){
         resp <- zenReq$getResponse()
-        hasRecords <- length(resp)>0
+        total_remaining <- total
+        records = resp
+        hasRecords <- length(records)>0
         while(hasRecords){
-          out <- c(out, lapply(resp, ZenodoRecord$new))
-          self$INFO(sprintf("Successfully fetched list of published records - page %s", page))
+          out <- c(out, lapply(records, ZenodoRecord$new))
+          infoMsg = sprintf("Successfully fetched list of published records - page %s", page)
+          cli::cli_alert_info(infoMsg)
+          self$INFO(infoMsg)
+          total_remaining <- total_remaining-length(records)
+          if(total_remaining <= size) size = total_remaining
+          if(total_remaining == 0){
+            break
+          }
           
           if(exact){
             hasRecords <- FALSE
           }else{
             #next
             page <- page+1
-            nextreq <- sprintf("records/?q=%s&size=%s&page=%s", URLencode(q), size, page)
-            if(all_versions) nextreq <- paste0(nextreq, "&all_versions=1")
+            nextreq <- sprintf("records?q=%s&size=%s&page=%s", URLencode(q), size, page)
+            if(all_versions) nextreq <- paste0(nextreq, "&allversions=1")
             zenReq <- ZenodoRequest$new(private$url, "GET_WITH_CURL", nextreq, 
                                         token = self$getToken(),
                                         logger = self$loggerType)
             zenReq$execute()
-            resp <- zenReq$getResponse()
-            hasRecords <- length(resp)>0
+            if(zenReq$getStatus() == 200){
+              resp <- zenReq$getResponse()
+              records <- resp$hits$hits
+              hasRecords <- length(records)>0
+            }else{
+              warnMsg = sprintf("Maximum allowed size for list of published records at page %s", page)
+              cli::cli_alert_warning(warnMsg)
+              self$WARN(warnMsg)
+              break
+            }
           }
         }
-        self$INFO("Successfully fetched list of published records!")
+        infoMsg = "Successfully fetched list of published records!"
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
         out <- zenReq$getResponse()
-        self$ERROR(sprintf("Error while fetching published records: %s", out$message))
+        errMsg = sprintf("Error while fetching published records: %s", out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
         for(error in out$errors){
-          self$ERROR(sprintf("Error: %s - %s", error$field, error$message))
+          errMsg = sprintf("Error: %s - %s", error$field, error$message)
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
         }
       }
       return(out)
@@ -1023,26 +2028,36 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @return a object of class \code{ZenodoRecord}
     getRecordByConceptDOI = function(conceptdoi){
       if(regexpr("zenodo", conceptdoi) < 0){
-        stop(sprintf("DOI '%s' doesn not seem to be a Zenodo DOI", conceptdoi))
+        errMsg = sprintf("DOI '%s' doesn not seem to be a Zenodo DOI", conceptdoi)
+        cli::cli_alert_danger(errMsg)
+        stop(errMsg)
       }
       query <- sprintf("conceptdoi:\"%s\"", conceptdoi)
       result <- self$getRecords(q = query, all_versions = TRUE, exact = TRUE)
       if(length(result)>0){
         result <- result[[1]]
-        if(result$conceptdoi == conceptdoi){
-          self$INFO(sprintf("Successfully fetched published record for concept DOI '%s'!", conceptdoi))
+        if(result$getConceptDOI() == conceptdoi){
+          infoMsg = sprintf("Successfully fetched published record for concept DOI '%s'!", conceptdoi)
+          cli::cli_alert_success(infoMsg)
+          self$INFO(infoMsg)
         }else{
           result <- NULL
         }
       }else{
         result <- NULL
       }
-      if(is.null(result)) self$WARN(sprintf("No published record for concept DOI '%s'!", conceptdoi))
+      if(is.null(result)){
+        warnMsg = sprintf("No published record for concept DOI '%s'!", conceptdoi)
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+      }
       if(is.null(result)){
         #try to get record by id
         if( regexpr("zenodo", conceptdoi)>0){
           conceptrecid <- unlist(strsplit(conceptdoi, "zenodo."))[2]
-          self$INFO(sprintf("Try to get published record by Zenodo concept record id '%s'", conceptrecid))
+          infoMsg = sprintf("Try to get published record by Zenodo concept record id '%s'", conceptrecid)
+          cli::cli_alert_info(infoMsg)
+          self$INFO(infoMsg)
           conceptrec <- self$getRecordByConceptId(conceptrecid)
           last_doi <- tail(conceptrec$getVersions(),1L)$doi
           result <- self$getRecordByDOI(last_doi)
@@ -1056,26 +2071,36 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @return a object of class \code{ZenodoRecord}
     getRecordByDOI = function(doi){
       if(regexpr("zenodo", doi) < 0){
-        stop(sprintf("DOI '%s' doesn not seem to be a Zenodo DOI", doi))
+        errMsg = sprintf("DOI '%s' doesn not seem to be a Zenodo DOI", doi)
+        cli::cli_alert_danger(errMsg)
+        stop(errMsg)
       }
       query <- sprintf("doi:\"%s\"", doi)
       result <- self$getRecords(q = query, all_versions = TRUE, exact = TRUE)
       if(length(result)>0){
         result <- result[[1]]
-        if(result$doi == doi){
-          self$INFO(sprintf("Successfully fetched record for DOI '%s'!",doi))
+        if(result$getDOI() == doi){
+          infoMsg = sprintf("Successfully fetched record for DOI '%s'!",doi)
+          cli::cli_alert_success(infoMsg)
+          self$INFO(infoMsg)
         }else{
           result <- NULL
         }
       }else{
         result <- NULL
       }
-      if(is.null(result)) self$WARN(sprintf("No record for DOI '%s'!",doi))
+      if(is.null(result)){
+        warnMsg = sprintf("No record for DOI '%s'!",doi)
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+      }
       if(is.null(result)){
         #try to get record by id
         if( regexpr("zenodo", doi)>0){
           recid <- unlist(strsplit(doi, "zenodo."))[2]
-          self$INFO(sprintf("Try to get deposition by Zenodo specific record id '%s'", recid))
+          infoMsg = sprintf("Try to get deposition by Zenodo specific record id '%s'", recid)
+          cli::cli_alert_info(infoMsg)
+          self$INFO(infoMsg)
           result <- self$getRecordById(recid)
         }
       }
@@ -1091,14 +2116,20 @@ ZenodoManager <-  R6Class("ZenodoManager",
       if(length(result)>0){
         result <- result[[1]]
         if(result$id == recid){
-          self$INFO(sprintf("Successfully fetched record for id '%s'!",recid))
+          infoMsg = sprintf("Successfully fetched record for id '%s'!",recid)
+          cli::cli_alert_success(infoMsg)
+          self$INFO(infoMsg)
         }else{
           result <- NULL
         }
       }else{
         result <- NULL
       }
-      if(is.null(result)) self$WARN(sprintf("No record for id '%s'!",recid))
+      if(is.null(result)){
+        warnMsg = sprintf("No record for id '%s'!",recid)
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+      }
       return(result)
     },
     
@@ -1110,16 +2141,252 @@ ZenodoManager <-  R6Class("ZenodoManager",
       result <- self$getRecords(q = query, all_versions = TRUE, exact = TRUE)
       if(length(result)>0){
         result <- result[[1]]
-        if(result$conceptrecid == conceptrecid){
-          self$INFO(sprintf("Successfully fetched record for concept id '%s'!",conceptrecid))
+        if(result$getConceptId() == conceptrecid){
+          infoMSg = sprintf("Successfully fetched record for concept id '%s'!",conceptrecid)
+          cli::cli_alert_success(infoMsg)
+          self$INFO(infoMsg)
         }else{
           result <- NULL
         }
       }else{
         result <- NULL
       }
-      if(is.null(result)) self$WARN(sprintf("No record for concept id '%s'!",conceptrecid))
+      if(is.null(result)){
+        warnMsg = sprintf("No record for concept id '%s'!",conceptrecid)
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+      }
       return(result)
+    },
+    
+    #Requests management
+    #---------------------------------------------------------------------------
+    
+    #' @description Search requests
+    #' @param q Search query used to filter results based on ElasticSearch's query string syntax. 
+    #' e.g. https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax
+    #' @param sort Sort search results. Built-in options are "bestmatch", "name", "newest", "oldest" (default: "bestmatch" or "newest").
+    #' @param size number of records to be retrieved per request (paginated). Default is 10
+    #' @return a list of \code{ZenodoRecord}
+    getRequests = function(q = "", sort = "bestmatch", size = 10){
+      page <- 1
+      req <- sprintf("requests/?q=%s&size=10page=%s&sort=%s", URLencode(q), page, sort)
+      zenReq <- ZenodoRequest$new(private$url, "GET", req, accept = "application/json",
+                                  token = self$getToken(),
+                                  logger = NULL)
+      zenReq$execute()
+      total = 0
+      if(zenReq$getStatus() == 200){
+        resp <- zenReq$getResponse()
+        total <- resp$hits$total
+        if(total > 10000){
+          warnMsg = sprintf("Total of %s requests found: the Zenodo API limits to a maximum of 10,000 records!", total)
+          cli::cli_alert_warning(warnMsg)
+          self$WARN(warnMSg) 
+        }
+      }
+      
+      req <- sprintf("requests/?q=%s&size=%s&page=%s&sort=%s", URLencode(q), size, page, sort)
+      zenReq <- ZenodoRequest$new(private$url, "GET_WITH_CURL", req, accept = "application/json",
+                                  token = self$getToken(),
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- NULL
+      if(zenReq$getStatus() == 200){
+        resp <- zenReq$getResponse()
+        total_remaining <- total
+        requests = resp
+        hasRecords <- length(requests)>0
+        while(hasRecords){
+          out <- c(out, requests)
+          infoMsg = sprintf("Successfully fetched list of requests - page %s", page)
+          cli::cli_alert_info(infoMsg)
+          self$INFO(infoMsg)
+          total_remaining <- total_remaining-length(requests)
+          if(total_remaining <= size) size = total_remaining
+          if(total_remaining == 0){
+            break
+          }
+
+          #next
+          page <- page+1
+          nextreq <- sprintf("requests/?q=%s&size=%s&page=%s&sort=%s", URLencode(q), size, page, sort)
+          zenReq <- ZenodoRequest$new(private$url, "GET_WITH_CURL", nextreq, accept = "application/json",
+                                      token = self$getToken(),
+                                      logger = self$loggerType)
+          zenReq$execute()
+          if(zenReq$getStatus() == 200){
+            resp <- zenReq$getResponse()
+            requests <- resp$hits$hits
+            hasRecords <- length(requests)>0
+          }else{
+            warnMsg = sprintf("Maximum allowed size for list of requests at page %s", page)
+            cli::cli_alert_warning(warnMsg)
+            self$WARN(warnMsg)
+            break
+          }
+        }
+        infoMsg = "Successfully fetched list of requests!"
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+      }else{
+        out <- zenReq$getResponse()
+        print(out)
+        errMsg = sprintf("Error while fetching requests: %s", out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        for(error in out$errors){
+          errMsg = sprintf("Error: %s - %s", error$field, error$message)
+          cli::cli_alert_danger(errMsg)
+          self$ERROR(errMsg)
+        }
+      }
+      return(out)
+    },
+    
+    #' @description Get a request
+    #' @param request_id the request ID
+    #' @return the request \code{list} object, NULL otherwise
+    getRequest = function(request_id){
+      zenReq <- ZenodoRequest$new(private$url, "GET", sprintf("requests/%s", request_id),
+                                  accept = "application/json",
+                                  token= self$getToken(), 
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successfuly fetched request with id '%s'", request_id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+      }else{
+        errMsg = sprintf("Error while fetching request with id  '%s': %s", request_id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- NULL
+      }
+      return(out)
+    },
+    
+    #' @description Checks if the request can be subject to an operation (accept, decline, cancel)
+    #' depending on its status. To be subject to an operation, a request should not be closed or expired 
+    #' @param request_id the request ID
+    #' @return \code{TRUE} if
+    isActionableRequest = function(request_id){
+      req = self$getRequest(request_id)
+      if(is.null(req)){
+        warnMsg = sprintf("No request with id '%s'to cancel, aborting request...", request_id)
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
+        return(FALSE)
+      }else{
+        if(req$is_closed | req$is_expired){
+          warnMsg = sprintf("Request with id '%s' is already %s, aborting request...", request_id, req$status)
+          cli::cli_alert_warning(warnMsg)
+          self$WARN(warnMsg)
+          return(FALSE)
+        }
+      }
+      return(TRUE)
+    },
+
+    
+    #' @description Accepts a request
+    #' @param request_id the request ID
+    #' @param message optional message reason for acceptance
+    #' @return \code{TRUE} if accepted, \code{FALSE} otherwise
+    acceptRequest = function(request_id, message = NULL){
+      
+      if(!self$isActionableRequest(request_id)) return(FALSE);
+      
+      accept_payload = NULL
+      if(!is.null(message)){
+        accept_payload = list(payload = list(content = message, format = "html"))
+      }
+      
+      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("requests/%s/actions/accept", request_id),
+                                  accept = "application/json", data = accept_payload,
+                                  token= self$getToken(), 
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successfuly accepted request with id '%s'", request_id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+        out <- TRUE
+      }else{
+        errMsg = sprintf("Error while accepting request with id  '%s': %s", request_id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- FALSE
+      }
+      return(out)
+    },
+    
+    #' @description Declines a request
+    #' @param request_id the request ID
+    #' @param message optional message reason for declination
+    #' @return \code{TRUE} if declined, \code{FALSE} otherwise
+    declineRequest = function(request_id, message = NULL){
+      
+      if(!self$isActionableRequest(request_id)) return(FALSE);
+      
+      decline_payload = NULL
+      if(!is.null(message)){
+        decline_payload = list(payload = list(content = message, format = "html"))
+      }
+      
+      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("requests/%s/actions/decline", request_id),
+                                  accept = "application/json", data = decline_payload,
+                                  token= self$getToken(), 
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successfuly declined request with id '%s'", request_id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+        out <- TRUE
+      }else{
+        errMsg = sprintf("Error while declining request with id  '%s': %s", request_id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- FALSE
+      }
+      return(out)
+    },
+    
+    #' @description Cancels a request
+    #' @param request_id the request ID
+    #' @param message optional message reason for cancelation
+    #' @return \code{TRUE} if canceled, \code{FALSE} otherwise
+    cancelRequest = function(request_id, message = NULL){
+      
+      if(!self$isActionableRequest(request_id)) return(FALSE);
+      
+      cancel_payload = NULL
+      if(!is.null(message)){
+        cancel_payload = list(payload = list(content = message, format = "html"))
+      }
+      
+      zenReq <- ZenodoRequest$new(private$url, "POST", sprintf("requests/%s/actions/cancel", request_id),
+                                  accept = "application/json", data = cancel_payload,
+                                  token= self$getToken(), 
+                                  logger = self$loggerType)
+      zenReq$execute()
+      out <- zenReq$getResponse()
+      if(zenReq$getStatus() == 200){
+        infoMsg = sprintf("Successfuly canceled request with id '%s'", request_id)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
+        out <- TRUE
+      }else{
+        errMsg = sprintf("Error while canceling request with id  '%s': %s", request_id, out$message)
+        cli::cli_alert_danger(errMsg)
+        self$ERROR(errMsg)
+        out <- FALSE
+      }
+      return(out)
     }
     
   )

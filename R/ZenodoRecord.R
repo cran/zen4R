@@ -10,17 +10,26 @@
 ZenodoRecord <-  R6Class("ZenodoRecord",
   inherit = zen4RLogger,
   private = list(
-    allowed_upload_types = c("publication","poster","presentation", "dataset","image","video","software", "lesson", "physicalobject", "other"),
-    allowed_publication_types = c("annotationcollection", "book","section","conferencepaper","datamanagementplan", "article","patent","preprint",
-                                  "deliverable", "milestone", "proposal", "report","softwaredocumentation", "taxonomictreatment", "technicalnote",
-                                  "thesis","workingpaper","other"),
-    allowed_image_types = c("figure","plot","drawing","diagram","photo","other"),
-    allowed_relations = c("isCitedBy", "cites", "isSupplementTo", "isSupplementedBy", "isContinuedBy", "continues", 
-                  "isDescribedBy", "describes", "hasMetadata", "isMetadataFor", "isNewVersionOf", "isPreviousVersionOf", 
-                  "isPartOf", "hasPart", "isReferencedBy", "references", "isDocumentedBy", "documents", "isCompiledBy", 
-                  "compiles", "isVariantFormOf", "isOriginalFormof", "isIdenticalTo", "isAlternateIdentifier", 
-                  "isReviewedBy", "reviews", "isDerivedFrom", "isSourceOf", "requires", "isRequiredBy", 
-                  "isObsoletedBy", "obsoletes"),
+    allowed_additional_title_types = c("alternative-title", "subtitle", "translated-title", "other"),
+    allowed_additional_description_types = c("abstract", "methods", "series-information", "table-of-contents", "technical-info", "other"),
+    allowed_role_types = c("contactperson", "datacollector", "datacurator", "datamanager", 
+                           "distributor", "editor", "funder", "hostinginstitution", "producer", 
+                           "projectleader", "projectmanager", "projectmember", "registrationagency", 
+                           "registrationauthority", "relatedperson", "researcher", "researchgroup", 
+                           "rightsholder", "supervisor", "sponsor", "workpackageleader", 
+                           "other"),
+    allowed_date_types = c("accepted", "available", "collected", "copyrighted", "created", "issued", 
+                           "other", "submitted", "updated", "valid", "withdrawn"),
+    allowed_identifier_schemes = c("ark", "arxiv", "bibcode", "doi", "ean13", "eissn", "handle", "igsn", "isbn",
+                                   "issn", "istc", "lissn", "lsid", "pubmed id", "purl", "upc", "url", "urn", "w3id", "other"),
+    allowed_relation_types = c("iscitedby", "cites", "issupplementto", "issupplementedby", 
+                          "iscontinuedby", "continues", "isdescribedby", "describes", "hasmetadata", 
+                          "ismetadatafor", "isnewversionof", "ispreviousversionof", "ispartof", 
+                          "haspart", "isreferencedby", "references", "isdocumentedby", 
+                          "documents", "iscompiledby", "compiles", "isvariantformof", "isoriginalformof", 
+                          "isidenticalto", "isalternateidentifier", "isreviewedby", "reviews", 
+                          "isderivedfrom", "issourceof", "requires", "isrequiredby", "isobsoletedby", 
+                          "obsoletes"),
     export_formats = c("BibTeX","CSL","DataCite","DublinCore","DCAT","JSON","JSON-LD","GeoJSON","MARCXML"),
     getExportFormatExtension = function(format){
       switch(format,
@@ -36,43 +45,63 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       )
     },
     fromList = function(obj){
-      self$conceptdoi = obj$conceptdoi
-      self$conceptrecid = obj$conceptrecid
       self$created = obj$created
-      self$doi = obj$doi
-      self$doi_url = obj$doi_url
-      self$files = lapply(obj$files, function(file){
+      self$updated = obj$updated
+      self$revision_id = obj$revision_id
+      self$status = obj$status
+      self$is_draft = obj$is_draft
+      self$is_published = obj$is_published
+      self$versions = obj$versions
+      
+      #invenio model
+      self$access = obj$access
+      self$links = obj$links
+      self$files = lapply(obj$files$entries, function(file){
         list(
           filename = if(!is.null(file$filename)) file$filename else file$key,
           filesize = if(!is.null(file$filesize)) file$filesize else file$size,
           checksum = if(!startsWith(file$checksum, "md5:")) file$checksum else unlist(strsplit(file$checksum, "md5:"))[2],
-          download = if(!is.null(file$links$download)) file$links$download else file$links$self
+          download = if(!is.null(file$links$download)) file$links$download else file.path(self$links$self, sprintf("files/%s/content", file$key))
         )
       })
       self$id = obj$id
-      self$links = obj$links
       self$metadata = obj$metadata
-      self$modified = obj$modified
-      self$owner = obj$owner
-      self$record_id = obj$record_id
-      self$state = obj$state
-      self$submitted = obj$submitted
-      self$title = obj$title
-      self$version = obj$version
+      #special metadata treatments
+      resource_type = self$metadata$resource_type
+      if(!is.null(resource_type)){
+        resource_type_id = resource_type$id
+        self$metadata$resource_type = list(id = resource_type_id)
+      }
+      self$pids = obj$pids
+      self$parent = obj$parent
+      
+      #zen4R specific fields
       if(!is.null(obj$stats)) self$stats = data.frame(obj$stats)
     }
   ),
   public = list(
-    #' @field conceptdoi record Concept DOI (common to all record versions)
-    conceptdoi = NULL,
-    #' @field conceptrecid record concept id
-    conceptrecid = NULL,
+    
     #' @field created record creation date
     created = NULL,
-    #' @field doi record doi
-    doi = NULL,
-    #' @field doi_url record doi URL
-    doi_url = NULL,
+    #' @field updated record update date
+    updated = NULL,
+    #' @field revision_id revision id
+    revision_id = NULL,
+    #' @field is_draft is draft
+    is_draft = NULL,
+    #' @field is_published is published
+    is_published = NULL,
+    #' @field status record status
+    status = NULL,
+    #' @field versions versions
+    versions = NULL,
+    
+    #' @field access access policies
+    access = list(
+      record = "public", 
+      files = "public"
+    ),
+    
     #' @field files list of files associated to the record
     files = list(),
     #' @field id record id
@@ -81,20 +110,13 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     links = list(),
     #' @field metadata metadata elements associated to the record
     metadata = list(),
-    #' @field modified record modification date
-    modified = NULL,
-    #' @field owner record owner
-    owner = NULL,
-    #' @field record_id record_id
-    record_id = NULL,
-    #' @field state record state
-    state = NULL,
-    #' @field submitted record submission status
-    submitted = FALSE,
-    #' @field title record title
-    title = NULL,
-    #' @field version record version
-    version = NULL,
+    #' @field parent parent record
+    parent = NULL,
+    #' @field pids pids
+    pids = list(),
+    
+    #zen4R specific fields
+    
     #' @field stats stats
     stats = NULL,
     
@@ -104,96 +126,11 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #' or "DEBUG" (for complete curl http calls logs)
     initialize = function(obj = NULL, logger = "INFO"){
       super$initialize(logger = logger)
-      self$prereserveDOI(TRUE)
       if(!is.null(obj)) private$fromList(obj)
     },
     
-    #' @description Set prereserve_doi if \code{TRUE}, \code{FALSE} otherwise to create a record without
-    #'    prereserved DOI by Zenodo. By default, this method will be called to prereserve a DOI assuming 
-    #'    the record created doesn't yet handle a DOI. To avoid prereserving a DOI call \code{$prereserveDOI(FALSE)} 
-    #'    on your record.
-    #' @param prereserve whether a DOI has to be pre-reserved by Zenodo
-    prereserveDOI = function(prereserve){
-      if(!is(prereserve,"logical")){
-        stop("The argument should be 'logical' (TRUE/FALSE)")
-      }
-      self$metadata$prereserve_doi <- prereserve
-    },
- 
-    #' @description Set the DOI. This method can be used if a DOI has been already assigned outside Zenodo.
-    #'    This method will call the method \code{$prereserveDOI(FALSE)}.
-    #' @param doi DOI to set for the record
-    setDOI = function(doi){
-      self$metadata$doi <- doi
-      self$prereserveDOI(FALSE)
-    },
-    
-    #' @description Get the concept (generic) DOI. The concept DOI is a generic DOI common to all versions
-    #'    of a Zenodo record. When a deposit is unsubmitted, this concept DOI is inherited based
-    #'    on the prereserved DOI of the first record version.
-    #' @return the concept DOI, object of class \code{character}
-    getConceptDOI = function(){
-      conceptdoi <- self$conceptdoi
-      if(is.null(conceptdoi)){
-        doi <- self$metadata$prereserve_doi
-        if(!is.null(doi)) {
-          doi_parts <- unlist(strsplit(doi$doi, "zenodo."))
-          conceptdoi <- paste0(doi_parts[1], "zenodo.", self$conceptrecid)
-        }
-      }
-      return(conceptdoi)
-    },
-    
-    #' @description Get DOI of the first record version.
-    #' @return the first DOI, object of class \code{character}
-    getFirstDOI = function(){
-      versions <- self$getVersions()
-      return(versions[1,"doi"])
-    },
-    
-    #' @description Get DOI of the latest record version.
-    #' @return the last DOI, object of class \code{character}
-    getLastDOI = function(){
-      versions <- self$getVersions()
-      return(versions[nrow(versions),"doi"])
-    },
-    
-    #' @description Get record versions with creation/publication date, 
-    #'   version (ordering number) and DOI.
-    #' @return a \code{data.frame} with the record versions
-    getVersions = function(){
-      
-      record_type <- if(self$state == "done") "record" else if(self$state == "unsubmitted") "deposit"
-      ref_link <- if(record_type == "record") "latest_html" else if(record_type == "deposit") "latest_draft_html"
-      zenodo_url <- paste0(unlist(strsplit(self$links[[ref_link]], paste0("/", record_type)))[1],"/api")
-      zenodo <- ZenodoManager$new(url = zenodo_url)
-      
-      records <- zenodo$getRecords(q = sprintf("conceptrecid:%s", self$conceptrecid), all_versions = T)
-      
-      versions <- data.frame(
-        created = character(0),
-        date = character(0),
-        version = character(0),
-        doi = character(0),
-        stringsAsFactors = FALSE
-      )
-      if(length(records)>0){
-        versions = do.call("rbind", lapply(records, function(version){
-          return(data.frame(
-            created = as.POSIXct(version$created, format = "%Y-%m-%dT%H:%M:%OS"),
-            date = as.Date(version$metadata$publication_date),
-            version = if(!is.null(version$metadata$version)) version$metadata$version else NA,
-            doi = version$doi,
-            stringsAsFactors = FALSE
-          ))
-        }))
-        versions <- versions[order(versions$created),]
-        row.names(versions) <- 1:nrow(versions)
-        if(all(is.na(versions$version))) versions$version <- 1:nrow(versions)
-      }
-      
-      return(versions)
-    },
+    #zen4R specific methods
+    #---------------------------------------------------------------------------
     
     #' @description Get record statistics
     #' @return statistics as \code{data.frame}
@@ -201,72 +138,256 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       return(self$stats)
     },
     
-    #' @description Set the upload type (mandatory). 
-    #' @param uploadType record upload type among the following values: 'publication', 'poster', 
-    #'  'presentation', 'dataset', 'image', 'video', 'software', 'lesson', 'physicalobject', 'other'
-    setUploadType = function(uploadType){
-      if(!(uploadType %in% private$allowed_upload_types)){
-        errorMsg <- sprintf("The upload type should be among the values [%s]",
-                            paste(private$allowed_upload_types, collapse=","))
+    #Invenio RDM API new methods
+    #---------------------------------------------------------------------------
+    #ID methods
+    #---------------------------------------------------------------------------
+    
+    #'@description Get the record Id
+    #'@return the Id, object of class \code{character}
+    getId = function(){
+      return(self$id)
+    },
+    
+    #'@description Get the parent record Id
+    #'@return the parent Id, object of class \code{character}
+    getParentId = function(){
+      return(self$parent$id)
+    },
+    
+    #'@description Get the concept record Id
+    #'@return the concept Id, object of class \code{character}
+    getConceptId = function(){
+      self$getParentId()
+    },
+    
+    #DOI methods
+    #---------------------------------------------------------------------------
+    
+    #' @description Set the DOI. This method can be used if a DOI has been already assigned outside Zenodo.
+    #' @param doi DOI to set for the record
+    #' @param provider DOI provider
+    #' @param client DOI client
+    setDOI = function(doi, provider = NULL, client = NULL){
+      self$pids = list(doi = list(identifier = doi, provider = provider, client = client))
+    },
+    
+    #'@description Get the record DOI.
+    #'@return the DOI, object of class \code{character}
+    getDOI = function(){
+      return(self$pids$doi$identifier)
+    },
+    
+    #' @description Get the concept (generic) DOI. The concept DOI is a generic DOI 
+    #' common to all versions of a Zenodo record.
+    #' @return the concept DOI, object of class \code{character}
+    getConceptDOI = function(){
+      conceptdoi = NULL
+      doi <- self$pids$doi$identifier
+      if(!is.null(doi)) if(regexpr("zenodo", doi)>0){
+        doi_parts <- unlist(strsplit(doi, "zenodo."))
+        conceptdoi <- paste0(doi_parts[1], "zenodo.", self$getConceptId())
+      }
+      return(conceptdoi)
+    },
+    
+    #Access methods
+    #---------------------------------------------------------------------------
+    
+    #'@description Set the access policy for record, among values "public" (default) or "restricted"
+    #'In Zenodo, in principle, the access policy 'restricted' is not available for records.
+    #'@param access access policy ('public' or 'restricted')
+    setAccessPolicyRecord = function(access = c("public","restricted")){
+      self$access$record = access
+    },
+    
+    #'@description Set the access policy for files, among values "public" (default) or "restricted"
+    #'@param access access policy ('public' or 'restricted')
+    setAccessPolicyFiles = function(access = c("public","restricted")){
+      self$access$files = access
+    },
+    
+    #'@description Set access policy embargo options
+    #'@param active whether embargo is active or not. Default is \code{FALSE}
+    #'@param until embargo date, object of class \code{Date}. Default is \code{NULL}. Must be provided if embargo is active
+    #'@param reason embargo reason, object of class \code{character}. Default is an empty string
+    setAccessPolicyEmbargo = function(active = FALSE, until = NULL, reason = ""){
+      if(!is.null(until)) if(!is(until, "Date")) stop("Argument 'until' should be of class 'Date'")
+      self$access$embargo = list(active = active, until = until, reason = reason)
+    },
+    
+    #Resource type methods
+    #---------------------------------------------------------------------------
+    
+    #' @description Set the resource type (mandatory). 
+    #' @param resourceType record resource type
+    setResourceType = function(resourceType){
+      zenodo = ZenodoManager$new()
+      zen_resourcetype <- zenodo$getResourceTypeById(resourceType)
+      if(is.null(zen_resourcetype)){
+        errorMsg <- sprintf("Resource type with id '%s' doesn't exist in Zenodo", resourceType)
         self$ERROR(errorMsg)
         stop(errorMsg)
       }
-      
-      self$metadata$upload_type <- uploadType
+      self$metadata$resource_type <- list(id = zen_resourcetype$id)
     },
     
-    #' @description Set the publication type (mandatory if upload type is 'publication').
+    #' @description Set the upload type (mandatory). Deprecated since zen4R 1.0
+    #' @param uploadType record upload type among the following values: 'publication', 'poster', 
+    #'  'presentation', 'dataset', 'image', 'video', 'software', 'lesson', 'physicalobject', 'other'
+    setUploadType = function(uploadType){
+      warnMsg = "Method 'setUploadType' is deprecated, please use 'setResourceType'"
+      self$WARN(warnMsg)
+    },
+    
+    #' @description Set the publication type (mandatory if upload type is 'publication'). Deprecated since zen4R 1.0
     #' @param publicationType record publication type among the following values: 'annotationcollection', 'book', 
     #'   'section', 'conferencepaper', 'datamanagementplan', 'article', 'patent', 'preprint', 'deliverable', 'milestone', 
     #'   'proposal', 'report', 'softwaredocumentation', 'taxonomictreatment', 'technicalnote', 'thesis', 'workingpaper', 
     #'   'other'
     setPublicationType = function(publicationType){
-      if(!(publicationType %in% private$allowed_publication_types)){
-        errorMsg <- sprintf("The publication type should be among the values [%s]",
-                            paste(private$allowed_publication_types, collapse=","))
-        self$ERROR(errorMsg)
-        stop(errorMsg)
-      }
-      self$setUploadType("publication")
-      self$metadata$publication_type <- publicationType
+      warnMsg = "Method 'setPublicationType' is deprecated, please use 'setResourceType'"
+      self$WARN(warnMsg)
     },
     
-    #' @description Set the image type (mandatory if image type is 'image').
+    #' @description Set the image type (mandatory if image type is 'image'). Deprecated since zen4R 1.0
     #' @param imageType record publication type among the following values: 'figure','plot',
     #' 'drawing','diagram','photo', or 'other'
     setImageType = function(imageType){
-      if(!(imageType %in% private$allowed_image_types)){
-        errorMsg <- sprintf("The image type should be among the values [%s",
-                            paste(private$allowed_image_types, collapse=","))
-        self$ERROR(errorMsg)
-        stop(errorMsg)
-      }
-      self$setUploadType("image")
-      self$metadata$image_type <- imageType
+      warnMsg = "Method 'setImageType' is deprecated, please use 'setImageType'"
+      self$WARN(warnMsg)
     },
     
-    #' @description Set the publication date.
-    #' @param publicationDate object of class \code{Date}
+    #Publication-related methods
+    #---------------------------------------------------------------------------
+    
+    #' @description Set the publisher
+    #' @param publisher publisher object of class \code{character}
+    setPublisher = function(publisher){
+      self$metadata$publisher = publisher  
+    },
+    
+    #' @description Set the publication date. For more information on the accepted format,
+    #' please check https://inveniordm.docs.cern.ch/reference/metadata/#publication-date-1
+    #' @param publicationDate object of class \code{character}
     setPublicationDate = function(publicationDate){
-      if(!is(publicationDate,"Date")){
-        stop("The publication date should be a 'Date' object")
-      }
-      self$metadata$publication_date <- as(publicationDate, "character")
+      self$metadata$publication_date <- publicationDate
     },
     
-    #' @description Set the embargo date.
-    #' @param embargoDate object of class \code{Date}
-    setEmbargoDate = function(embargoDate){
-      if(!is(embargoDate,"Date")){
-        stop("The embargo date should be a 'Date' object")
+    #' @description Add date
+    #' @param date date
+    #' @param type type of date, among following values: 'accepted', 'available', 'collected', 'copyrighted', 
+    #' 'created', 'issued', 'other', 'submitted', 'updated', 'valid', 'withdrawn'
+    #' @param description free text, specific information about the date
+    addDate = function(date, type, description = NULL){
+      if(!type %in% private$allowed_date_types){
+        errMsg = sprintf("Date type should be among following possible values: %s",
+                         paste0(private$allowed_date_types, collapse=", "))
+        self$ERROR(errMsg)
+        stop(errMsg)
       }
-      self$metadata$embargo_date <- as(embargoDate, "character")
+      if(is.null(self$metadata$dates)) self$metadata$dates = list()
+      self$metadata$dates[[length(self$metadata$dates)+1]] = list(
+        date = date, 
+        type = list(id = type), 
+        description = description
+      )
     },
+    
+    #' @description Remove a date
+    #' @param date the date to remove
+    #' @param type the date type of the date to be removed
+    #' @return \code{TRUE} if removed, \code{FALSE} otherwise
+    removeDate = function(date, type){
+      removed <- FALSE
+      if(!is.null(self$metadata$dates)){
+        for(i in 1:length(self$metadata$dates)){
+          dat <- self$metadata$dates[[i]]
+          if(dat$date == date & dat$type$id == type){
+            self$metadata$dates[[i]] <- NULL
+            removed <- TRUE
+            break;
+          }
+        }
+      }
+      return(removed)
+    },
+    
+    #Description methods
+    #---------------------------------------------------------------------------
     
     #' @description Set the record title.
     #' @param title object of class \code{character}
     setTitle = function(title){
       self$metadata$title <- title
+    },
+    
+    #' @description Add additional record title
+    #' @param title title free text
+    #' @param type type of title, among following values: alternative-title, subtitle, translated-title, other
+    #' @param lang language id
+    #' @return \code{TRUE} if added, \code{FALSE} otherwise
+    addAdditionalTitle = function(title, type, lang = "eng"){
+      added = FALSE
+      if(!(type %in% private$allowed_additional_title_types)){
+        errMsg = sprintf("Additional title type '%s' incorrect. Possible values are: %s",
+                         type, paste0(private$allowed_additional_title_types, collapse=","))
+        self$ERROR(errMsg)
+        stop(errMsg)
+      }
+      
+      if(is.null(self$metadata$additional_titles)) self$metadata$additional_titles = list()
+      ids_df <- data.frame(
+        title = character(0),
+        type = character(0),
+        lang = character(0),
+        stringsAsFactors = FALSE
+      )
+      if(length(self$metadata$additional_titles)>0){
+        ids_df <- do.call("rbind", lapply(self$metadata$additional_titles, function(x){
+          data.frame(
+            title = x$title,
+            type = x$type$id,
+            lang = x$lang$id,
+            stringsAsFactors = FALSE
+          )
+        }))
+      }
+      if(nrow(ids_df[ids_df$title == title & 
+                     ids_df$type == type &
+                     ids_df$lang == lang,])==0){
+        new_title = list(
+          title = title,
+          type = list(id = type),
+          lang = list(id = lang)
+        )
+        self$metadata$additional_titles[[length(self$metadata$additional_titles)+1]] <- new_title
+        added = TRUE
+      }
+      return(added)
+    },
+    
+    #' @description Removes additional record title.
+    #' @param title title free text
+    #' @param type type of title, among following values: abstract, methods, 
+    #' series-information, table-of-contents, technical-info, other
+    #' @param lang language id
+    #' @return \code{TRUE} if removed, \code{FALSE} otherwise
+    removeAdditionalTitle = function(title, type, lang = "eng"){
+      removed <- FALSE
+      if(!is.null(self$metadata$additional_titles)){
+        for(i in 1:length(self$metadata$additional_titles)){
+          desc <- self$metadata$additional_titles[[i]]
+          if(desc$title == title &&
+             desc$type$id == type &&
+             desc$lang$id == lang){
+            self$metadata$additional_titles[[i]] <- NULL
+            removed <- TRUE
+            break;
+          }
+        }
+      }
+      return(removed)
     },
     
     #' @description Set the record description
@@ -275,170 +396,345 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       self$metadata$description <- description
     },
     
-    #' @description Set the access right. 
-    #' @param accessRight record access right among the following values: 'open','embargoed', 'restricted','closed'
-    setAccessRight = function(accessRight){
-      accessRightValues <- c("open","embargoed","restricted","closed")
-      if(!(accessRight %in% accessRightValues)){
-        errorMsg <- sprintf("The access right should be among the values [%s",
-                            paste(accessRightValues, collapse=","))
-        self$ERROR(errorMsg)
-        stop(errorMsg)
-      }
-      self$metadata$access_right <- accessRight
-    },
-    
-    #' @description set the access conditions.
-    #' @param accessConditions object of class \code{character}
-    setAccessConditions = function(accessConditions){
-      self$metadata$access_conditions <- accessConditions
-    },
-    
-    #' @description Add a creator for the record. One approach is to use the \code{firstname} and
-    #'    \code{lastname} arguments, that by default will be concatenated for Zenodo as
-    #'    \code{lastname, firstname}. For more flexibility over this, the \code{name}
-    #'    argument can be directly used.
-    #' @param firstname creator first name
-    #' @param lastname creator last name
-    #' @param name creator name
-    #' @param affiliation creator affiliation (optional)
-    #' @param orcid creator ORCID (optional)
-    #' @param gnd creator GND (optional)
+    #' @description Add additional record description
+    #' @param description description free text
+    #' @param type type of description, among following values: abstract, methods, 
+    #' series-information, table-of-contents, technical-info, other
+    #' @param lang language id
     #' @return \code{TRUE} if added, \code{FALSE} otherwise
-    addCreator = function(firstname, lastname, name = paste(lastname, firstname, sep = ", "),
-                          affiliation = NULL, orcid = NULL, gnd = NULL){
-      creator <- list(name = name)
-      if(!is.null(affiliation)) creator <- c(creator, affiliation = affiliation)
-      if(!is.null(orcid)) creator <- c(creator, orcid = orcid)
-      if(!is.null(gnd)) creator <- c(creator, gnd = gnd)
-      if(is.null(self$metadata$creators)) self$metadata$creators <- list()
-      self$metadata$creators[[length(self$metadata$creators)+1]] <- creator
+    addAdditionalDescription = function(description, type, lang = "eng"){
+      added = FALSE
+      if(!(type %in% private$allowed_additional_description_types)){
+        errMsg = sprintf("Additional description type '%s' incorrect. Possible values are: %s",
+                         type, paste0(private$allowed_additional_description_types, collapse=","))
+        self$ERROR(errMsg)
+        stop(errMsg)
+      }
+      
+      if(is.null(self$metadata$additional_descriptions)) self$metadata$additional_descriptions = list()
+      ids_df <- data.frame(
+        description = character(0),
+        type = character(0),
+        lang = character(0),
+        stringsAsFactors = FALSE
+      )
+      if(length(self$metadata$additional_descriptions)>0){
+        ids_df <- do.call("rbind", lapply(self$metadata$additional_descriptions, function(x){
+          data.frame(
+            description = x$description,
+            type = x$type$id,
+            lang = x$lang$id,
+            stringsAsFactors = FALSE
+          )
+        }))
+      }
+      if(nrow(ids_df[ids_df$description == description & 
+                     ids_df$type == type &
+                     ids_df$lang == lang,])==0){
+        new_desc = list(
+          description = description,
+          type = list(id = type),
+          lang = list(id = lang)
+        )
+        self$metadata$additional_descriptions[[length(self$metadata$additional_descriptions)+1]] <- new_desc
+        added = TRUE
+      }
+      return(added)
     },
     
-    #' @description Removes a creator by a property. The \code{by} parameter should be the name
-    #'    of the creator property ('name' - in the form 'lastname, firstname', 'affiliation',
-    #'    'orcid' or 'gnd').
-    #' @param by property used as criterion to remove the creator
-    #' @param property property value used to remove the creator
+    #' @description Removes additional record description
+    #' @param description description free text
+    #' @param type type of description, among following values: abstract, methods, 
+    #' series-information, table-of-contents, technical-info, other
+    #' @param lang language id
     #' @return \code{TRUE} if removed, \code{FALSE} otherwise
-    removeCreator = function(by,property){
+    removeAdditionalDescription = function(description, type, lang = "eng"){
       removed <- FALSE
-      for(i in 1:length(self$metadata$creators)){
-        creator <- self$metadata$creators[[i]]
-        if(creator[[by]]==property){
-          self$metadata$creators[[i]] <- NULL
+      if(!is.null(self$metadata$additional_descriptions)){
+        for(i in 1:length(self$metadata$additional_descriptions)){
+          desc <- self$metadata$additional_descriptions[[i]]
+          if(desc$description == description &&
+             desc$type$id == type &&
+             desc$lang$id == lang){
+            self$metadata$additional_descriptions[[i]] <- NULL
+            removed <- TRUE
+            break;
+          }
+        }
+      }
+      return(removed)
+    },
+    
+    # PERSON OR ORG
+    #---------------------------------------------------------------------------
+    
+    #' @description Add a person or organization for the record. For persons, the approach is to use the \code{firstname} and
+    #'    \code{lastname} arguments, that by default will be concatenated for Zenodo as \code{lastname, firstname}.
+    #'    For organizations, use the \code{name} argument.
+    #' @param firstname person first name
+    #' @param lastname person last name
+    #' @param name organization name
+    #' @param orcid person or organization ORCID (optional)
+    #' @param gnd person or organization GND (optional)
+    #' @param isni person or organization ISNI (optional)
+    #' @param ror person or organization ROR (optional)
+    #' @param role role, values among: contactperson, datacollector, datacurator, datamanager, distributor, editor, funder, 
+    #' hostinginstitution, producer, projectleader, projectmanager, projectmember, registrationagency, registrationauthority, 
+    #' relatedperson, researcher, researchgroup, rightsholder, supervisor, sponsor, workpackageleader, other
+    #' @param affiliations person or organization affiliations (optional)
+    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available affiliations. Default is \code{FALSE}
+    #' @param type type of person or org (creators/contributors)
+    #' @return \code{TRUE} if added, \code{FALSE} otherwise
+    #' 
+    #' @note Internal method. Prefer using \code{addCreator} or \code{addContributor}
+    #' 
+    addPersonOrOrg = function(firstname = NULL, lastname = NULL, name = paste(lastname, firstname, sep = ", "),
+                          orcid = NULL, gnd = NULL, isni = NULL, ror = NULL, role = NULL, affiliations = NULL, sandbox = FALSE,
+                          type){
+      personOrOrg <- list(
+        person_or_org = list(
+          type = if(!is.null(firstname)&&!is.null(lastname)) "personal" else "organizational",
+          given_name = firstname,
+          family_name = lastname,
+          name = name,
+          identifiers = list()
+        ),
+        role = NULL,
+        affiliations = list()
+      )
+      #identifiers
+      if(!is.null(orcid)) personOrOrg$person_or_org$identifiers[[length(personOrOrg$person_or_org$identifiers)+1]] = list(scheme = "orcid", identifier = orcid)
+      if(!is.null(gnd)) personOrOrg$person_or_org$identifiers[[length(personOrOrg$person_or_org$identifiers)+1]] = list(scheme = "gnd", identifier = gnd)
+      if(!is.null(isni)) personOrOrg$person_or_org$identifiers[[length(personOrOrg$person_or_org$identifiers)+1]] = list(scheme = "isni", identifier = isni)
+      if(!is.null(ror)) personOrOrg$person_or_org$identifiers[[length(personOrOrg$person_or_org$identifiers)+1]] = list(scheme = "ror", identifier = ror)
+      
+      #role
+      if(!is.null(role)){
+        if(!(role %in% private$allowed_role_types)){
+          stop(sprintf("The role type should be one value among values [%s]",
+                       paste(private$allowed_role_types, collapse=",")))
+        }
+        personOrOrg$role = list(id = role)
+      }
+        
+      #affiliations
+      if(!is.null(affiliations)) if(personOrOrg$person_or_org$type == "personal"){
+        zen = ZenodoManager$new(sandbox = sandbox)
+        affs = lapply(affiliations, function(affiliation){
+          zen_affiliation <- if(grepl(" ",affiliation)) zen$getAffiliationByName(affiliation) else zen$getAffiliationById(affiliation)
+          if(is.null(zen_affiliation)){
+            warnMsg <- sprintf("Affiliation with id or name '%s' doesn't exist in Zenodo", affiliation)
+            self$WARN(warnMsg)
+          }
+          aff = list(name = affiliation)
+          if(!is.null(zen_affiliation)) aff = list(id = zen_affiliation$id)
+          return(aff)
+        })
+        affs = affs[!sapply(affs,is.null)]
+        personOrOrg$affiliations = affs
+      }
+      
+      if(is.null(self$metadata[[type]])) self$metadata[[type]] <- list()
+      self$metadata[[type]][[length(self$metadata[[type]])+1]] <- personOrOrg
+    },
+    
+    #' @description Removes a person or organization by a property. The \code{by} parameter should be the name
+    #'    of the person or organization property ('name', 'affiliation','orcid','gnd','isni','ror').
+    #' @param by property used as criterion to remove the person or organization
+    #' @param property property value used to remove the person or organization
+    #' @param type type of person or org (creators / contributors)
+    #' @return \code{TRUE} if removed, \code{FALSE} otherwise
+    #' 
+    #' @note Internal method. Prefer using \code{removeCreator} or \code{removeContributor}
+    #'
+    removePersonOrOrg = function(by, property, type){
+      removed <- FALSE
+      for(i in 1:length(self$metadata[[type]])){
+        personOrOrg <- self$metadata[[type]][[i]]
+        personOrOrg_map = personOrOrg$person_or_org[names(personOrOrg$person_or_org)!="identifiers"]
+        if(!is.null(personOrOrg$person_or_org$identifiers)) for(identifier in personOrOrg$person_or_org$identifiers){
+          personOrOrg_map = c(personOrOrg_map, scheme = identifier$identifier)
+          names(personOrOrg_map)[names(personOrOrg_map)=="scheme"] = identifier$scheme
+        }
+        if(personOrOrg_map[[by]]==property){
+          self$metadata[[type]][[i]] <- NULL
           removed <- TRUE 
         }
       }
       return(removed)
+    },
+    
+    # CREATORS
+    #---------------------------------------------------------------------------
+    
+    #' @description Add a creator for the record. For persons, the approach is to use the \code{firstname} and
+    #'    \code{lastname} arguments, that by default will be concatenated for Zenodo as \code{lastname, firstname}.
+    #'    For organizations, use the \code{name} argument.
+    #' @param firstname person first name
+    #' @param lastname person last name
+    #' @param name organization name
+    #' @param orcid creator ORCID (optional)
+    #' @param gnd creator GND (optional)
+    #' @param isni creator ISNI (optional)
+    #' @param ror creator ROR (optional)
+    #' @param role role, values among: contactperson, datacollector, datacurator, datamanager, distributor, editor, funder, 
+    #' hostinginstitution, producer, projectleader, projectmanager, projectmember, registrationagency, registrationauthority, 
+    #' relatedperson, researcher, researchgroup, rightsholder, supervisor, sponsor, workpackageleader, other
+    #' @param affiliations creator affiliations (optional)
+    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available affiliations. Default is \code{FALSE}
+    #' @return \code{TRUE} if added, \code{FALSE} otherwise
+    addCreator = function(firstname = NULL, lastname = NULL, name = paste(lastname, firstname, sep = ", "),
+                              orcid = NULL, gnd = NULL, isni = NULL, ror = NULL, role = NULL, affiliations = NULL, sandbox = FALSE){
+      self$addPersonOrOrg(firstname = firstname, lastname = lastname, name = name, 
+                          orcid = orcid, gnd = gnd, isni = isni, ror = ror, role = role, affiliations = affiliations, sandbox = sandbox,
+                          type = "creators")
     },
     
     #' @description Removes a creator by name.
     #' @param name creator name
     #' @return \code{TRUE} if removed, \code{FALSE} otherwise
     removeCreatorByName = function(name){
-      return(self$removeCreator(by = "name", name))
+      return(self$removePersonOrOrg(by = "name", name, type = "creators"))
     },
 
     #' @description Removes a creator by affiliation.
     #' @param affiliation creator affiliation
     #' @return \code{TRUE} if removed, \code{FALSE} otherwise
     removeCreatorByAffiliation = function(affiliation){
-      return(self$removeCreator(by = "affiliation", affiliation))
+      return(self$removePersonOrOrg(by = "affiliation", affiliation, type = "creators"))
     },
     
     #' @description Removes a creator by ORCID.
     #' @param orcid creator ORCID
     #' @return \code{TRUE} if removed, \code{FALSE} otherwise
     removeCreatorByORCID = function(orcid){
-      return(self$removeCreator(by = "orcid", orcid))
+      return(self$removePersonOrOrg(by = "orcid", orcid, type = "creators"))
     },
     
     #' @description Removes a creator by GND.
     #' @param gnd creator GND
     #' @return \code{TRUE} if removed, \code{FALSE} otherwise
     removeCreatorByGND = function(gnd){
-      return(self$removeCreator(by = "gnd", gnd))
+      return(self$removePersonOrOrg(by = "gnd", gnd, type = "creators"))
     },
     
-    #' @description  Add a contributor for the record. One approach is to use the \code{firstname} and
-    #'    \code{lastname} arguments, that by default will be concatenated for Zenodo as
-    #'    \code{lastname, firstname}. For more flexibility over this, the \code{name}
-    #'    argument can be directly used.
-    #' @param firstname contributor first name
-    #' @param lastname contributor last name
-    #' @param name contributor name
-    #' @param type contributor type, among values: ContactPerson, 
-    #'    DataCollector, DataCurator, DataManager, Distributor, Editor, Funder, HostingInstitution, 
-    #'    Producer, ProjectLeader, ProjectManager, ProjectMember, RegistrationAgency, RegistrationAuthority,
-    #'    RelatedPerson, Researcher, ResearchGroup, RightsHolder, Supervisor, Sponsor, WorkPackageLeader, Other.
-    #' @param affiliation contributor affiliation (optional)
-    #' @param orcid contributor orcid (optional)
-    #' @param gnd contributor gnd (optional)
-    #' @return \code{TRUE} if added, \code{FALSE} otherwise
-    addContributor = function(firstname, lastname, name = paste(lastname, firstname, sep = ", "),
-                              type, affiliation = NULL, orcid = NULL, gnd = NULL){
-      allowedTypes <- c("ContactPerson", "DataCollector", "DataCurator", "DataManager","Distributor",
-                        "Editor", "Funder", "HostingInstitution", "Producer", "ProjectLeader", "ProjectManager",
-                        "ProjectMember", "RegistrationAgency", "RegistrationAuthority", "RelatedPerson",
-                        "Researcher", "ResearchGroup", "RightsHolder","Supervisor", "Sponsor", "WorkPackageLeader", "Other")
-      if(!(type %in% allowedTypes)){
-        stop(sprintf("The contributor type should be one value among values [%s]",
-                      paste(allowedTypes, collapse=",")))
-      }
-      contributor <- list(name = name, type = type)
-      if(!is.null(affiliation)) contributor <- c(contributor, affiliation = affiliation)
-      if(!is.null(orcid)) contributor <- c(contributor, orcid = orcid)
-      if(!is.null(gnd)) contributor <- c(contributor, gnd = gnd)
-      if(is.null(self$metadata$contributors)) self$metadata$contributors <- list()
-      self$metadata$contributors[[length(self$metadata$contributors)+1]] <- contributor
-    },
-    
-    #' @description Removes a contributor by a property. The \code{by} parameter should be the name
-    #'    of the contributor property ('name' - in the form 'lastname, firstname', 'affiliation',
-    #'    'orcid' or 'gnd').
-    #'    \code{FALSE} otherwise.
-    #' @param by property used as criterion to remove the contributor
-    #' @param property property value used to remove the contributor
+    #' @description Removes a creator by ISNI.
+    #' @param isni creator ISNI
     #' @return \code{TRUE} if removed, \code{FALSE} otherwise
-    removeContributor = function(by,property){
-      removed <- FALSE
-      for(i in 1:length(self$metadata$contributors)){
-        contributor <- self$metadata$contributors[[i]]
-        if(contributor[[by]]==property){
-          self$metadata$contributors[[i]] <- NULL
-          removed <- TRUE 
-        }
-      }
-      return(removed)
+    removeCreatorByISNI = function(isni){
+      return(self$removePersonOrOrg(by = "isni", isni, type = "creators"))
+    },
+    
+    #' @description Removes a creator by ROR.
+    #' @param ror creator ROR
+    #' @return \code{TRUE} if removed, \code{FALSE} otherwise
+    removeCreatorByROR = function(ror){
+      return(self$removePersonOrOrg(by = "ror", ror, type = "creators"))
+    },
+    
+    # CONTRIBUTORS
+    #---------------------------------------------------------------------------
+    
+    #' @description Add a contributor for the record. For persons, the approach is to use the \code{firstname} and
+    #'    \code{lastname} arguments, that by default will be concatenated for Zenodo as \code{lastname, firstname}.
+    #'    For organizations, use the \code{name} argument.
+    #' @param firstname person first name
+    #' @param lastname person last name
+    #' @param name organization name
+    #' @param orcid contributor ORCID (optional)
+    #' @param gnd contributor GND (optional)
+    #' @param isni contributor ISNI (optional)
+    #' @param ror contributor ROR (optional)
+    #' @param role role, values among: contactperson, datacollector, datacurator, datamanager, distributor, editor, funder, 
+    #' hostinginstitution, producer, projectleader, projectmanager, projectmember, registrationagency, registrationauthority, 
+    #' relatedperson, researcher, researchgroup, rightsholder, supervisor, sponsor, workpackageleader, other
+    #' @param affiliations contributor affiliations (optional)
+    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available affiliations. Default is \code{FALSE}
+    #' @return \code{TRUE} if added, \code{FALSE} otherwise
+    addContributor = function(firstname = NULL, lastname = NULL, name = paste(lastname, firstname, sep = ", "),
+                          orcid = NULL, gnd = NULL, isni = NULL, ror = NULL, role = NULL, affiliations = NULL, sandbox = FALSE){
+      self$addPersonOrOrg(firstname = firstname, lastname = lastname, name = name, 
+                          orcid = orcid, gnd = gnd, isni = isni, ror = ror, role = role, affiliations = affiliations, sandbox = sandbox,
+                          type = "contributors")
     },
     
     #' @description Removes a contributor by name.
     #' @param name contributor name
     #' @return \code{TRUE} if removed, \code{FALSE} otherwise
     removeContributorByName = function(name){
-      return(self$removeContributor(by = "name", name))
+      return(self$removePersonOrOrg(by = "name", name, type = "contributors"))
     },
     
     #' @description Removes a contributor by affiliation.
     #' @param affiliation contributor affiliation
     #' @return \code{TRUE} if removed, \code{FALSE} otherwise
     removeContributorByAffiliation = function(affiliation){
-      return(self$removeContributor(by = "affiliation", affiliation))
+      return(self$removePersonOrOrg(by = "affiliation", affiliation, type = "contributors"))
     },
     
     #' @description Removes a contributor by ORCID.
     #' @param orcid contributor ORCID
     #' @return \code{TRUE} if removed, \code{FALSE} otherwise
     removeContributorByORCID = function(orcid){
-      return(self$removeContributor(by = "orcid", orcid))
+      return(self$removePersonOrOrg(by = "orcid", orcid, type = "contributors"))
     },
     
     #' @description Removes a contributor by GND.
     #' @param gnd contributor GND
     #' @return \code{TRUE} if removed, \code{FALSE} otherwise
     removeContributorByGND = function(gnd){
-      return(self$removeContributor(by = "gnd", gnd))
+      return(self$removePersonOrOrg(by = "gnd", gnd, type = "contributors"))
+    },
+    
+    #' @description Removes a contributor by ISNI.
+    #' @param isni contributor ISNI
+    #' @return \code{TRUE} if removed, \code{FALSE} otherwise
+    removeContributorByISNI = function(isni){
+      return(self$removePersonOrOrg(by = "isni", isni, type = "contributors"))
+    },
+    
+    #' @description Removes a contributor by ROR.
+    #' @param ror contributor ROR
+    #' @return \code{TRUE} if removed, \code{FALSE} otherwise
+    removeContributorByROR = function(ror){
+      return(self$removePersonOrOrg(by = "ror", ror, type = "contributors"))
+    },
+    
+    #'@description Add right/license. Please see https://inveniordm.docs.cern.ch/reference/metadata/#rights-licenses-0-n
+    #'@param id license id
+    #'@param title license title
+    #'@param description a multi-lingual list
+    #'@param link license link
+    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available licenses. Default is \code{FALSE}
+    addRight = function(id = NULL, title = NULL, description = NULL, link = NULL,
+                        sandbox = FALSE){
+      added = FALSE
+      if(is.null(self$metadata$rights)) self$metadata$rights = list()
+      zen <- ZenodoManager$new(sandbox = sandbox)
+      if(!is.null(id)){
+        zen_license <- zen$getLicenseById(id)
+        if(is.null(zen_license)){
+          errorMsg <- sprintf("License with id '%s' doesn't exist in Zenodo", id)
+          self$ERROR(errorMsg)
+          stop(errorMsg)
+        }
+        right = list(id = zen_license$id)
+        self$metadata$rights[[length(self$metadata$rights)+1]] = right
+        added = TRUE
+      }else{
+        if(is.null(title)){
+          errMsg <- "At least an 'id' or 'title' must be provided"
+          self$ERROR(errorMsg)
+          stop(errorMsg)
+        }else{
+          right = list(title = title)
+          if(!is.null(description)) right$description = description
+          if(!is.null(link)) right$link = link
+          self$metadata$rights[[length(self$metadata$rights)+1]] = right
+          added = TRUE
+        }
+      }
+      return(added)
     },
     
     #' @description Set license. The license should be set with the Zenodo id of the license. If not
@@ -446,15 +742,9 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #'    fetched with the \code{ZenodoManager} and the function \code{$getLicenses()}.
     #' @param licenseId a license Id
     #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available licenses. Default is \code{FALSE}
+    #' @return \code{TRUE} if set, \code{FALSE} otherwise
     setLicense = function(licenseId, sandbox = FALSE){
-      zen <- ZenodoManager$new(sandbox = sandbox)
-      zen_license <- zen$getLicenseById(licenseId)
-      if(!is.null(zen_license$status)){
-        errorMsg <- sprintf("License with id '%s' doesn't exist in Zenodo", licenseId)
-        self$ERROR(errorMsg)
-        stop(errorMsg)
-      }
-      self$metadata$license <- licenseId
+      self$addRight(id = licenseId, sandbox = sandbox)
     },
     
     #' @description Set record version.
@@ -463,48 +753,78 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       self$metadata$version <- version
     },
     
-    #' @description  Set the language.
+    #' @description  Adds a language.
     #' @param language ISO 639-2 or 639-3 code
-    setLanguage = function(language){
-      self$metadata$language <- language
+    addLanguage = function(language){
+      zenodo = ZenodoManager$new()
+      zen_language = zenodo$getLanguageById(language)
+      if(is.null(zen_language)){
+        errorMsg <- sprintf("Language with id '%s' doesn't exist in Zenodo", language)
+        self$ERROR(errorMsg)
+        stop(errorMsg)
+      }
+      self$metadata$languages[[length(self$metadata$languages)+1]] <- list(id = language)
     },
     
-    #' @description Adds a related identifier with a given relation.
-    #' @param relation relation type among following values: isCitedBy, cites, isSupplementTo, isSupplementedBy, 
-    #'  isContinuedBy, continues, isDescribedBy, describes, hasMetadata, isMetadataFor, isNewVersionOf, 
-    #'  isPreviousVersionOf, isPartOf, hasPart, isReferencedBy, references, isDocumentedBy, documents, 
-    #'  isCompiledBy, compiles, isVariantFormOf, isOriginalFormof, isIdenticalTo, isAlternateIdentifier, 
-    #'  isReviewedBy, reviews, isDerivedFrom, isSourceOf, requires, isRequiredBy, isObsoletedBy, obsoletes
-    #' @param identifier resource identifier
-    #' @param resource_type optional resource type, value among possible publication types, image types, or upload 
-    #'  types (except 'publication' and 'image' for which a publication/image has to be specified). Default is \code{NULL}
-    addRelatedIdentifier = function(relation, identifier, resource_type = NULL){
-      if(!(relation %in% private$allowed_relations)){
-        stop(sprintf("Relation '%s' incorrect. Use a value among the following [%s]", 
-                    relation, paste(private$allowed_relations, collapse=",")))
+    #' @description Set the language
+    #' @param language ISO 639-2 or 639-3 code
+    setLanguage = function(language){
+      warnMsg = "Method 'setLanguage' is deprecated, please use 'addLanguage'"
+      self$WARN(warnMsg)
+      self$addLanguage(language)
+    },
+    
+    #' @description Adds a related identifier with a given scheme and relation type.
+    #' @param identifier identifier
+    #' @param scheme scheme among following values: ark, arxiv, bibcode, doi, ean13, eissn, handle, igsn, isbn, issn, istc, lissn, 
+    #' lsid, pubmed id, purl, upc, url, urn, w3id
+    #' @param relation_type relation type among following values: iscitedby, cites, issupplementto, issupplementedby, iscontinuedby, 
+    #' continues, isdescribedby, describes, hasmetadata, ismetadatafor, isnewversionof, ispreviousversionof, ispartof, haspart, 
+    #' isreferencedby, references, isdocumentedby, documents, iscompiledby, compiles, isvariantformof, isoriginalformof, isidenticalto, 
+    #' isalternateidentifier, isreviewedby, reviews, isderivedfrom, issourceof, requires, isrequiredby, isobsoletedby, obsoletes
+    #' @param resource_type optional resource type
+    #'@return \code{TRUE} if added, \code{FALSE} otherwise
+    addRelatedIdentifier = function(identifier, scheme, relation_type, resource_type = NULL){
+      if(!(scheme %in% private$allowed_identifier_schemes)){
+        stop(sprintf("Identifier scheme '%s' incorrect. Use a value among the following [%s]",
+                     scheme, paste0(private$allowed_identifier_schemes, collapse=",")))
+      }
+      if(!(relation_type %in% private$allowed_relation_types)){
+        stop(sprintf("Relation type '%s' incorrect. Use a value among the following [%s]", 
+                    relation_type, paste(private$allowed_relation_types, collapse=",")))
       }
       added <- FALSE
       if(is.null(self$metadata$related_identifiers)) self$metadata$related_identifiers <- list()
-      ids_df <- data.frame(relation = character(0), identifier = character(0), stringsAsFactors = FALSE)
+      ids_df <- data.frame(
+        identifier = character(0),
+        scheme = character(0),
+        relation_type = character(0),
+        resource_type = character(0),
+        stringsAsFactors = FALSE
+      )
       if(length(self$metadata$related_identifiers)>0){
         ids_df <- do.call("rbind", lapply(self$metadata$related_identifiers, function(x){
-          data.frame(relation = x$relation, identifier = x$identifier, stringsAsFactors = FALSE)
+          data.frame(
+            identifier = x$identifier,
+            scheme = x$scheme,
+            relation_type = x$relation_type$id,
+            resource_type = if(!is.null(x$resource_type$id)) x$resource_type$id else NA,
+            stringsAsFactors = FALSE
+          )
         }))
       }
-      if(nrow(ids_df[ids_df$relation == relation & ids_df$identifier == identifier,])==0){
-        new_rel <- list(relation = relation, identifier = identifier)
+      if(nrow(ids_df[ids_df$relation == relation_type & ids_df$identifier == identifier,])==0){
+        new_rel <- list(
+          identifier = identifier,
+          scheme = scheme,
+          relation_type = list(id = relation_type)
+        )
         if(!is.null(resource_type)) {
-          allowed_resource_types <- c(private$allowed_upload_types, private$allowed_publication_types, private$allowed_image_types)
-          allowed_resource_types <- allowed_resource_types[!(allowed_resource_types %in% c("publication", "image"))]
-          if(!(resource_type %in% allowed_resource_types)){
-            stop(sprintf("Relation resource type '%s' incorrect. Use a value among the following [%s]", 
-                         relation, paste(allowed_resource_types, collapse=",")))
+          zenodo = ZenodoManager$new()
+          res = ZENODO$getResourceTypeById(resource_type)
+          if(!is.null(res)){
+            new_rel$resource_type = list(id = resource_type)
           }
-          resource_type_prefix <- ""
-          if(resource_type %in% private$allowed_publication_types)resource_type_prefix = "publication-"
-          if(resource_type %in% private$allowed_image_types)resource_type_prefix = "image-"
-          
-          new_rel$resource_type <- paste0(resource_type_prefix, resource_type)
         } 
         self$metadata$related_identifiers[[length(self$metadata$related_identifiers)+1]] <- new_rel
         added <- TRUE
@@ -512,23 +832,31 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       return(added)
     },
     
-    #' @description Removes a related identifier with a given relation.
-    #' @param relation relation type among following values: isCitedBy, cites, isSupplementTo, isSupplementedBy, 
-    #'  isContinuedBy, continues, isDescribedBy, describes, hasMetadata, isMetadataFor, isNewVersionOf, 
-    #'  isPreviousVersionOf, isPartOf, hasPart, isReferencedBy, references, isDocumentedBy, documents, 
-    #'  isCompiledBy, compiles, isVariantFormOf, isOriginalFormof, isIdenticalTo, isAlternateIdentifier, 
-    #'  isReviewedBy, reviews, isDerivedFrom, isSourceOf, requires, isRequiredBy, isObsoletedBy, obsoletes
-    #' @param identifier resource identifier
-    removeRelatedIdentifier = function(relation, identifier){
-      if(!(relation %in% private$allowed_relations)){
+    #' @description Removes a related identifier with a given scheme/relation_type
+    #' @param identifier identifier
+    #' @param scheme scheme among following values: ark, arxiv, bibcode, doi, ean13, eissn, handle, igsn, isbn, issn, istc, lissn, 
+    #' lsid, pubmed id, purl, upc, url, urn, w3id
+    #' @param relation_type relation type among following values: iscitedby, cites, issupplementto, issupplementedby, iscontinuedby, 
+    #' continues, isdescribedby, describes, hasmetadata, ismetadatafor, isnewversionof, ispreviousversionof, ispartof, haspart, 
+    #' isreferencedby, references, isdocumentedby, documents, iscompiledby, compiles, isvariantformof, isoriginalformof, isidenticalto, 
+    #' isalternateidentifier, isreviewedby, reviews, isderivedfrom, issourceof, requires, isrequiredby, isobsoletedby, obsoletes
+    #'@return \code{TRUE} if removed, \code{FALSE} otherwise
+    removeRelatedIdentifier = function(identifier, scheme, relation_type){
+      if(!(scheme %in% private$allowed_identifier_schemes)){
+        stop(sprintf("Identifier scheme '%s%' incorrect. Use a value among the following [%s]",
+                     scheme, paste0(private$allowed_identifier_schemes, collapse=",")))
+      }
+      if(!(relation_type %in% private$allowed_relation_types)){
         stop(sprintf("Relation '%s' incorrect. Use a value among the following [%s]", 
-                     relation, paste(private$allowed_relations, collapse=",")))
+                     relation_type, paste(private$allowed_relation_types, collapse=",")))
       }
       removed <- FALSE
       if(!is.null(self$metadata$related_identifiers)){
         for(i in 1:length(self$metadata$related_identifiers)){
           related_id <- self$metadata$related_identifiers[[i]]
-          if(related_id$relation == relation & related_id$identifier == identifier){
+          if(related_id$identifier == identifier &
+             related_id$scheme == scheme &
+             related_id$relation_type$id == relation_type){
             self$metadata$related_identifiers[[i]] <- NULL
             removed <- TRUE
             break;
@@ -553,8 +881,8 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     addReference = function(reference){
       added <- FALSE
       if(is.null(self$metadata$references)) self$metadata$references <- list()
-      if(!(reference %in% self$metadata$references)){
-        self$metadata$references[[length(self$metadata$references)+1]] <- reference
+      if(!(reference %in% sapply(self$metadata$references, function(x){x$reference}))){
+        self$metadata$references[[length(self$metadata$references)+1]] <- list(reference = reference)
         added <- TRUE
       }
       return(added)
@@ -568,7 +896,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       if(!is.null(self$metadata$references)){
         for(i in 1:length(self$metadata$references)){
           ref <- self$metadata$references[[i]]
-          if(ref == reference){
+          if(ref$reference == reference){
             self$metadata$references[[i]] <- NULL
             removed <- TRUE
             break;
@@ -578,38 +906,55 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       return(removed)
     },
     
+    #' @description Set subjects
+    #' @param subjects a vector or list of subjects to set for the record
+    setSubjects = function(subjects){
+      if(is.null(self$metadata$subjects)) self$metadata$subjects <- list()
+      for(subject in subjects){
+        self$addSubject(subject)
+      }
+    },
+    
     #' @description Set keywords
     #' @param keywords a vector or list of keywords to set for the record
     setKeywords = function(keywords){
-      if(is.null(self$metadata$keywords)) self$metadata$keywords <- list()
-      for(keyword in keywords){
-        self$addKeyword(keyword)
+      warnMsg = "Method 'setKeywords' is deprecated, please use 'setSubjects'"
+      self$WARN(warnMsg)
+      self$setSubjects(keywords)
+    },
+    
+    #' @description Add a subject
+    #' @param subject the subject to add
+    #' @return \code{TRUE} if added, \code{FALSE} otherwise
+    addSubject = function(subject){
+      added <- FALSE
+      if(is.null(self$metadata$subjects)) self$metadata$subjects <- list()
+      if(!(subject %in% self$metadata$subjects)){
+        self$metadata$subjects[[length(self$metadata$subjects)+1]] <- list(subject = subject)
+        added <- TRUE
       }
+      return(added)
     },
     
     #' @description Add a keyword
     #' @param keyword the keyword to add
     #' @return \code{TRUE} if added, \code{FALSE} otherwise
     addKeyword = function(keyword){
-      added <- FALSE
-      if(is.null(self$metadata$keywords)) self$metadata$keywords <- list()
-      if(!(keyword %in% self$metadata$keywords)){
-        self$metadata$keywords[[length(self$metadata$keywords)+1]] <- keyword
-        added <- TRUE
-      }
-      return(added)
+      warnMsg = "Method 'addKeyword' is deprecated, please use 'addSubject'"
+      self$WARN(warnMsg)
+      self$addSubject(keyword)
     },
     
-    #' @description Remove a keyword
-    #' @param keyword the keyword to remove
+    #' @description Remove a subject
+    #' @param subject the subject to remove
     #' @return \code{TRUE} if removed, \code{FALSE} otherwise
-    removeKeyword = function(keyword){
+    removeSubject = function(subject){
       removed <- FALSE
-      if(!is.null(self$metadata$keywords)){
-        for(i in 1:length(self$metadata$keywords)){
-          kwd <- self$metadata$keywords[[i]]
-          if(kwd == keyword){
-            self$metadata$keywords[[i]] <- NULL
+      if(!is.null(self$metadata$subjects)){
+        for(i in 1:length(self$metadata$subjects)){
+          sbj <- self$metadata$subjects[[i]]
+          if(sbj$subject == subject){
+            self$metadata$subjects[[i]] <- NULL
             removed <- TRUE
             break;
           }
@@ -618,44 +963,13 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       return(removed)
     },
     
-    #' @description Adds a subject given a term and identifier
-    #' @param term subject term
-    #' @param identifier subject identifier
-    addSubject = function(term, identifier){
-      subject <- list(term = term, identifier = identifier)
-      if(is.null(self$metadata$subjects)) self$metadata$subjects <- list()
-      self$metadata$subjects[[length(self$metadata$subjects)+1]] <- subject
-    },
-    
-    #' @description Removes subject(s) by a property. The \code{by} parameter should be the name
-    #'    of the subject property ('term' or 'identifier').
-    #' @param by property used as criterion to remove subjects
-    #' @param property property value used to remove subjects
-    #' @return \code{TRUE} if at least one subject is removed, \code{FALSE} otherwise.
-    removeSubject = function(by, property){
-      removed <- FALSE
-      for(i in 1:length(self$metadata$subjects)){
-        subject <- self$metadata$subjects[[i]]
-        if(subject[[by]]==property){
-          self$metadata$subjects[[i]] <- NULL
-          removed <- TRUE 
-        }
-      }
-      return(removed)
-    },
-    
-    #' @description Removes subject(s) by term.
-    #' @param term the term to use to remove subject(s)
-    #' @return \code{TRUE} if at least one subject is removed, \code{FALSE} otherwise. 
-    removeSubjectByTerm = function(term){
-      return(self$removeSubject(by = "term", property = term))
-    },
-    
-    #' @description Removes subject(s) by identifier
-    #' @param identifier the identifier to use to remove subject(s)
-    #' @return \code{TRUE} if at least one subject is removed, \code{FALSE} otherwise. 
-    removeSubjectByIdentifier = function(identifier){
-      return(self$removeSubject(by = "identifier", property = identifier))
+    #' @description Remove a keyword
+    #' @param keyword the keyword to remove
+    #' @return \code{TRUE} if removed, \code{FALSE} otherwise
+    removeKeyword = function(keyword){
+      warnMsg = "Method 'removeKeyword' is deprecated, please use 'removeSubject'"
+      self$WARN(warnMsg)
+      self$removeSubject(keyword)
     },
     
     #' @description Set notes. HTML is not allowed
@@ -664,93 +978,89 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       self$metadata$notes <- notes
     },
     
-    #' @description Set a vector of character strings identifying communities
-    #' @param communities a vector or list of communities. Values should among known communities. The list of communities can
-    #'    fetched with the \code{ZenodoManager} and the function \code{$getCommunities()}. Each community should be set with 
-    #'    the Zenodo id of the community. If not recognized by Zenodo, the function will return an error.
-    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available communities. Default is \code{FALSE}
-    setCommunities = function(communities, sandbox = FALSE){
-      if(is.null(self$metadata$communities)) self$metadata$communities <- list()
-      for(community in communities){
-        self$addCommunity(community, sandbox = sandbox)
-      }
-    },
-    
-    #' @description Adds a community to the record metadata. 
-    #' @param community community to add. The community should be set with the Zenodo id of the community. 
-    #'   If not recognized by Zenodo, the function will return an error. The list of communities can fetched 
-    #'   with the \code{ZenodoManager} and the function \code{$getCommunities()}.
-    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available communities. Default is \code{FALSE}
-    #' @return \code{TRUE} if added, \code{FALSE} otherwise
-    addCommunity = function(community, sandbox = FALSE){
-      added <- FALSE
+    #' @description Adds funding. Used internally, prefer using \code{addGrant} instead.
+    #' @param funder funder id or name
+    #' @param grant grant id or title
+    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available grants. Default is \code{FALSE}
+    addFunding = function(funder = NULL, grant = NULL, sandbox = FALSE){
       zen <- ZenodoManager$new(sandbox = sandbox)
-      if(is.null(self$metadata$communities)) self$metadata$communities <- list()
-      if(!(community %in% sapply(self$metadata$communities, function(x){x$identifier}))){
-        zen_community <- zen$getCommunityById(community)
-        if(is.null(zen_community)){
-          errorMsg <- sprintf("Community with id '%s' doesn't exist in Zenodo", community)
-          self$ERROR(errorMsg)
-          stop(errorMsg)
+      if(is.null(self$metadata$funding)) self$metadata$funding <- list()
+      #funder
+      funder_item = NULL
+      if(!is.null(funder)){
+        funder_id = NULL
+        zen_funder = zen$getFunderById(URLencode(funder))
+        if(is.null(zen_funder)){
+          warnMsg <- sprintf("Funder with id '%s' doesn't exist in Zenodo", funder)
+          self$WARN(warnMsg)
+          funders = zen$getFundersByName(name = funder)
+          if(!is.null(funders)) if(any(funders$name == funder)){
+            zen_funder = funders[funders$name == funder,][1,]
+            funder_id = zen_funder$id
+          }
+        }else{
+          funder_id = zen_funder$id
         }
-        self$metadata$communities[[length(self$metadata$communities)+1]] <- list(identifier = community)
-        added <- TRUE
+        if(!is.null(funder_id)){
+          funder_item = list(id = funder_id)
+        }else{
+          # funder_item = list(name = funder)
+        }
       }
-      return(added)
-    },
-    
-    #' @description Removes a community from the record metadata. 
-    #' @param community community to remove. The community should be set with the Zenodo id of the community.
-    #' @return \code{TRUE} if removed, \code{FALSE} otherwise
-    removeCommunity = function(community){
-      removed <- FALSE
-      if(!is.null(self$metadata$communities)){
-        for(i in 1:length(self$metadata$communities)){
-          com <- self$metadata$communities[[i]]
-          if(com == community){
-            self$metadata$communities[[i]] <- NULL
-            removed <- TRUE
-            break;
+      #grant
+      grant_item = NULL
+      if(!is.null(grant)){
+        if(regexpr("::", grant)>0){
+          zen_grant <- zen$getAwardById(URLencode(grant))
+          if(is.null(zen_grant)){
+            warnMsg <- sprintf("Grant with id '%s' doesn't exist in Zenodo", grant)
+            self$WARN(warnMsg)
+          }else{
+            grant_item = list(id = zen_grant$id)
+          }
+        }else{
+          grants = zen$getAwardsByName(grant)
+          if(!is.null(grants)) if(any(grants$title == grant)){
+            zen_grant = grants[grants$title == grant,][1,]
+            grant_item = list(id = zen_grant$id)
           }
         }
+        # if(is.null(grant_item)){
+        #   grant_item = list(title = list(en = grant))
+        # }
       }
-      return(removed)
-    },
-    
-    #' @description Set a vector of character strings identifying grants
-    #' @param grants a vector or list of grants Values should among known grants The list of grants can
-    #'    fetched with the \code{ZenodoManager} and the function \code{$getGrants()}. Each grant should be set with 
-    #'    the Zenodo id of the grant If not recognized by Zenodo, the function will raise a warning only.
-    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available grants. Default is \code{FALSE}
-    setGrants = function(grants, sandbox = FALSE){
-      if(is.null(self$metadata$grants)) self$metadata$grants <- list()
-      for(grant in grants){
-        self$addGrant(grant, sandbox = sandbox)
+      
+      funding = list()
+      if(!is.null(funder_item)) funding$funder = funder_item
+      if(!is.null(grant_item)) funding$award = grant_item
+      added = FALSE
+      if(length(funding)>0){
+        self$metadata$funding[[length(self$metadata$funding)+1]] = funding
+        added = TRUE
       }
+      return(added)
     },
     
     #' @description Adds a grant to the record metadata.
     #' @param grant grant to add. The grant should be set with the id of the grant. If not
     #'    recognized by Zenodo, the function will return an warning only. The list of grants can
-    #'    fetched with the \code{ZenodoManager} and the function \code{$getGrants()}.
+    #'    fetched with the \code{ZenodoManager} and the function \code{$getAwards()}.
     #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available grants. Default is \code{FALSE}
     #' @return \code{TRUE} if added, \code{FALSE} otherwise
     addGrant = function(grant, sandbox = FALSE){
-      added <- FALSE
-      zen <- ZenodoManager$new(sandbox = sandbox)
-      if(is.null(self$metadata$grants)) self$metadata$grants <- list()
-      if(!(grant %in% self$metadata$grants)){
-        if(regexpr("::", grant)>0){
-          zen_grant <- zen$getGrantById(grant)
-          if(is.null(zen_grant)){
-            warnMsg <- sprintf("Grant with id '%s' doesn't exist in Zenodo", grant)
-            self$WARN(warnMsg)
-          }
-        }
-        self$metadata$grants[[length(self$metadata$grants)+1]] <- list(id = grant)
-        added <- TRUE
+      self$addFunding(grant = grant, sandbox = sandbox)
+    },
+    
+    #' @description Set a vector of character strings identifying grants
+    #' @param grants a vector or list of grants Values should among known grants The list of grants can
+    #'    fetched with the \code{ZenodoManager} and the function \code{$getAwards()}. Each grant should be set with 
+    #'    the Zenodo id of the grant If not recognized by Zenodo, the function will raise a warning only.
+    #' @param sandbox Use the Zenodo sandbox infrastructure as basis to control available grants. Default is \code{FALSE}
+    setGrants = function(grants, sandbox = FALSE){
+      if(is.null(self$metadata$funding)) self$metadata$funding <- list()
+      for(grant in grants){
+        self$addGrant(grant = grant, sandbox = sandbox)
       }
-      return(added)
     },
     
     #' @description Removes a grant from the record metadata. 
@@ -758,11 +1068,11 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #' @return \code{TRUE} if removed, \code{FALSE} otherwise
     removeGrant = function(grant){
       removed <- FALSE
-      if(!is.null(self$metadata$grants)){
-        for(i in 1:length(self$metadata$grants)){
-          grt <- self$metadata$grants[[i]]
-          if(grt == grant){
-            self$metadata$grants[[i]] <- NULL
+      if(!is.null(self$metadata$funding)){
+        if(length(self$metadata$funding)>0) for(i in 1:length(self$metadata$funding)){
+          grt <- self$metadata$funding[[i]]
+          if(grt$award$id == grant){
+            self$metadata$funding[[i]] <- NULL
             removed <- TRUE
             break;
           }
@@ -971,18 +1281,18 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #' @return the writen file name (with extension)
     exportAs = function(format, filename, append_format = TRUE){
       zenodo_url <- self$links$record_html
-      if(is.null(zenodo_url)) zenodo_url <- self$links$latest_html
+      if(is.null(zenodo_url)) zenodo_url <- self$links$self_html
       if(is.null(zenodo_url)){
         stop("Ups, this record seems a draft, can't export metadata until it is published!")
       }
       metadata_export_url <- switch(format,
-        "BibTeX" = paste0(zenodo_url,"/export/hx"),
+        "BibTeX" = paste0(zenodo_url,"/export/bibtex"),
         "CSL" =  paste0(zenodo_url,"/export/csl"),
-        "DataCite" =  paste0(zenodo_url,"/export/dcite4"),
-        "DublinCore" =  paste0(zenodo_url,"/export/xd"),
-        "DCAT" =  paste0(zenodo_url,"/export/dcat"),
+        "DataCite" =  paste0(zenodo_url,"/export/datacite-xml"),
+        "DublinCore" =  paste0(zenodo_url,"/export/dublincore"),
+        "DCAT" =  paste0(zenodo_url,"/export/dcat-ap"),
         "JSON" =  paste0(zenodo_url,"/export/json"),
-        "JSON-LD" =  paste0(zenodo_url,"/export/schemaorg_jsonld"),
+        "JSON-LD" =  paste0(zenodo_url,"/export/json-ld"),
         "GeoJSON" =  paste0(zenodo_url,"/export/geojson"),
         "MARCXML" =  paste0(zenodo_url,"/export/xm"),
         NULL
@@ -992,19 +1302,12 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       }
       
       fileext <- private$getExportFormatExtension(format)
-      
-      html <- xml2::read_html(metadata_export_url)
-      reference <- xml2::xml_find_all(html, ".//pre")
-      reference <- reference[1]
-      reference <- gsub("<pre.*\">","",reference)
-      reference <- gsub("</pre>","",reference)
-      if(fileext %in% c("xml", "rdf")){
-        reference <- gsub("&lt;", "<", reference)
-        reference <- gsub("&gt;", ">", reference)
-      }
-    
       destfile <- paste(paste0(filename, ifelse(append_format,paste0("_", format),"")), fileext, sep = ".")
-      writeChar(reference, destfile, eos = NULL)
+      
+      req <- httr::GET(
+        url = metadata_export_url,
+        httr::write_disk(path = destfile, overwrite = TRUE)
+      )
       return(destfile)
     },
     
@@ -1117,8 +1420,9 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     downloadFiles = function(path = ".", files = list(),
                              parallel = FALSE, parallel_handler = NULL, cl = NULL, quiet = FALSE, overwrite=TRUE, timeout=60, ...){
       if(length(self$files)==0){
-        self$WARN(sprintf("No files to download for record '%s' (doi: '%s')",
-                          self$id, self$doi))
+        warnMsg = sprintf("No files to download for record '%s' (doi: '%s')", self$id, self$pids$doi$identifier)
+        cli::cli_alert_warning(warnMsg)
+        self$WARN(warnMsg)
       }else{
         files.list <- self$files
 
@@ -1132,26 +1436,33 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
         if(length(files)>0) files.list <- files.list[sapply(files.list, function(x){x$filename %in% files})]
         if(length(files.list)==0){
           errMsg <- sprintf("No files available in record '%s' (doi: '%s') for file names [%s]",
-                            self$id, self$doi, paste0(files, collapse=","))
+                            self$id, self$pids$doi$identifier, paste0(files, collapse=","))
+          cli::cli_alert_danger(errMsg)
           self$ERROR(errMsg)
           stop(errMsg)
         }
         for(file in files){
           if(!file %in% sapply(files.list, function(x){x$filename})){
-            self$WARN(sprintf("No files available in record '%s' (doi: '%s') for file name '%s': ",
-                              self$id, self$doi, file))
+            warnMsg = sprintf("No files available in record '%s' (doi: '%s') for file name '%s': ",
+                              self$id, self$pids$doi$identifier, file)
+            cli::cli_alert_warning(warnMsg)
+            self$WARN(warnMSg)
           }
         }
 
         files_summary <- sprintf("Will download %s file%s from record '%s' (doi: '%s') - total size: %s",
-                                length(files.list), ifelse(length(files.list)>1,"s",""), self$id, self$doi, 
+                                length(files.list), ifelse(length(files.list)>1,"s",""), self$id, self$pids$doi$identifier, 
                                 human_filesize(sum(sapply(files.list, function(x){x$filesize}))))
         
         #download_file util
         download_file <- function(file){
           file$filename <- substring(file$filename, regexpr("/", file$filename)+1, nchar(file$filename))
-          if (!quiet) cat(sprintf("[zen4R][INFO] Downloading file '%s' - size: %s\n", 
-                            file$filename, human_filesize(file$filesize)))
+          if (!quiet){
+            infoMsg = sprintf("Downloading file '%s' - size: %s\n", 
+                              file$filename, human_filesize(file$filesize))
+            cli::cli_alert_info(infoMsg)
+            cat(paste("[zen4R][INFO]", infoMsg))
+          }
           target_file <- file.path(path, file$filename)
           timeout_cache <- getOption("timeout")
           options(timeout = timeout)
@@ -1166,20 +1477,30 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
           #check md5sum
           target_file_md5sum <- tools::md5sum(target_file)
           if(target_file_md5sum==file$checksum){
-            if (!quiet) cat(sprintf("[zen4R][INFO] File '%s': integrity verified (md5sum: %s)\n",
-                        file$filename, file$checksum))
+            if (!quiet){
+              infoMsg = sprintf("File '%s': integrity verified (md5sum: %s)\n",
+                                file$filename, file$checksum)
+              cli::cli_alert_info(infoMsg)
+              cat(paste("[zen4R][INFO]", infoMsg))
+            }
           }else{
-            warnMsg <- sprintf("[zen4R][WARN] Download issue: md5sum (%s) of file '%s' does not match Zenodo archive md5sum (%s)\n", 
+            warnMsg <- sprintf("Download issue: md5sum (%s) of file '%s' does not match Zenodo archive md5sum (%s)\n", 
                                target_file_md5sum, tools::file_path_as_absolute(target_file), file$checksum)
-            cat(warnMsg)
+            cli::cli_alert_warning(warnMsg)
+            cat(paste("[zen4R][WARN]", warnMsg))
             warning(warnMsg)
           }
         }
         
         if(parallel){
-          if (!quiet) self$INFO("Download in parallel mode")
+          if (!quiet){
+            infoMsg = "Download in parallel mode"
+            cli::cli_alert_info(infoMsg)
+            self$INFO(infoMsg)
+          }
           if (is.null(parallel_handler)) {
             errMsg <- "No 'parallel_handler' specified"
+            cli::cli_alert_danger(errMsg)
             self$ERROR(errMsg)
             stop(errMsg)
           }
@@ -1187,29 +1508,57 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
             if(!is.null(cl)){
               if (!requireNamespace("parallel", quietly = TRUE)) {
                 errMsg <- "Package \"parallel\" needed for cluster-based parallel handler. Please install it."
+                cli::cli_alert_danger(errMsg)
                 self$ERROR(errMsg)
                 stop(errMsg)
               }
-              if (!quiet) self$INFO("Using cluster-based parallel handler (cluster 'cl' argument specified)")
-              if (!quiet) self$INFO(files_summary)
+              if (!quiet){
+                infoMsg = "Using cluster-based parallel handler (cluster 'cl' argument specified)"
+                cli::cli_alert_info(infoMsg)
+                self$INFO(infoMsg)
+                cli::cli_alert_info(files_summary)
+                self$INFO(files_summary)
+              }
               invisible(parallel_handler(cl, files.list, download_file, ...))
               try(parallel::stopCluster(cl))
             }else{
-              if (!quiet) self$INFO("Using non cluster-based (no cluster 'cl' argument specified)")
-              if (!quiet) self$INFO(files_summary)
+              if (!quiet){
+                infoMsg = "Using non cluster-based (no cluster 'cl' argument specified)"
+                cli::cli_alert_info(infoMsg)
+                self$INFO(infoMsg)
+                cli::cli_alert_info(files_summary)
+                self$INFO(files_summary)
+              }
               invisible(parallel_handler(files.list, download_file, ...))
             }
           }
         }else{
-          if (!quiet) self$INFO("Download in sequential mode")
-          if (!quiet) self$INFO(files_summary) 
+          if (!quiet){
+            infoMsg = "Download in sequential mode"
+            cli::cli_alert_info(infoMsg)
+            self$INFO(infoMsg)
+            cli::cli_alert_info(files_summary)
+            self$INFO(files_summary)
+          }
           invisible(lapply(files.list, download_file))
         }
-        if (!quiet) cat(sprintf("[zen4R][INFO] File%s downloaded at '%s'.\n",
-                                ifelse(length(files.list)>1,"s",""), tools::file_path_as_absolute(path)))
-        if (!quiet) self$INFO("Verifying file integrity...")
+        if (!quiet){
+          infoMsg = sprintf("File%s downloaded at '%s'.\n",
+                            ifelse(length(files.list)>1,"s",""), tools::file_path_as_absolute(path))
+          cli::cli_alert_info(infoMsg)
+          cat(paste("[zen4R][INFO]", infoMsg))
+        }
+        if (!quiet){
+          infoMsg = "Verifying file integrity..."
+          cli::cli_alert_info(infoMsg)
+          self$INFO(infoMsg)
+        }
         invisible(lapply(files.list, check_integrity))
-        if (!quiet) self$INFO("End of download")
+        if (!quiet){
+          infoMsg = "End of download"
+          cli::cli_alert_success(infoMsg)
+          self$INFO(infoMsg)
+        }
       }
     },
     
@@ -1226,7 +1575,8 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
         zenodo_url <- self$links$record_html
         if(is.null(zenodo_url)) zenodo_url <- self$links$latest_html
         if(is.null(zenodo_url)){
-          self$WARN(sprintf("Can't print record as '%s' format: record is not published! Use 'internal' printing format ...", format))
+          warnMsg = sprintf("Can't print record as '%s' format: record is not published! Use 'internal' printing format ...", format)
+          self$WARN(warnMsg)
           method <- "internal"
         }
       }
@@ -1319,6 +1669,57 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       tmp <- tempfile()
       dcfile <- self$exportAsDublinCore(filename = tmp)
       return(atom4R::DCEntry$new(xml = XML::xmlParse(dcfile)))
+    },
+    
+    #DOI versioning
+    #----------------------------------------------------------------------------
+    
+    #' @description Get DOI of the first record version.
+    #' @return the first DOI, object of class \code{character}
+    getFirstDOI = function(){
+      versions <- self$getVersions()
+      return(versions[1,"doi"])
+    },
+    
+    #' @description Get DOI of the latest record version.
+    #' @return the last DOI, object of class \code{character}
+    getLastDOI = function(){
+      versions <- self$getVersions()
+      return(versions[nrow(versions),"doi"])
+    },
+    
+    #' @description Get record versions with creation/publication date, 
+    #'   version (ordering number) and DOI.
+    #' @return a \code{data.frame} with the record versions
+    getVersions = function(){
+      zenodo <- ZenodoManager$new(url = paste0(unlist(strsplit(self$links$self, "/api"))[1], "/api"))
+      records <- zenodo$getRecords(q = sprintf("conceptrecid:%s", self$getConceptId()), all_versions = T, size = 1000)
+      
+      versions <- data.frame(
+        created = character(0),
+        updated = character(0),
+        date = character(0),
+        version = character(0),
+        doi = character(0),
+        stringsAsFactors = FALSE
+      )
+      if(length(records)>0){
+        versions = do.call("rbind", lapply(records, function(version){
+          return(data.frame(
+            created = as.POSIXct(version$created, format = "%Y-%m-%dT%H:%M:%OS"),
+            updated = as.POSIXct(version$updated, format = "%Y-%m-%dT%H:%M:%OS"),
+            date = as.Date(version$metadata$publication_date),
+            version = if(!is.null(version$metadata$version)) version$metadata$version else NA,
+            doi = version$pids$doi$identifier,
+            stringsAsFactors = FALSE
+          ))
+        }))
+        versions <- versions[order(versions$created),]
+        row.names(versions) <- 1:nrow(versions)
+        if(all(is.na(versions$version))) versions$version <- 1:nrow(versions)
+      }
+      
+      return(versions)
     }
     
   )
