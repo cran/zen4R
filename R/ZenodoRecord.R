@@ -2,8 +2,8 @@
 #' @docType class
 #' @export
 #' @keywords zenodo record
-#' @return Object of \code{\link{R6Class}} for modelling an ZenodoRecord
-#' @format \code{\link{R6Class}} object.
+#' @return Object of \code{\link[R6]{R6Class}} for modelling an ZenodoRecord
+#' @format \code{\link[R6]{R6Class}} object.
 #' 
 #' @author Emmanuel Blondel <emmanuel.blondel1@@gmail.com>
 #' 
@@ -821,7 +821,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
         )
         if(!is.null(resource_type)) {
           zenodo = ZenodoManager$new()
-          res = ZENODO$getResourceTypeById(resource_type)
+          res = zenodo$getResourceTypeById(resource_type)
           if(!is.null(res)){
             new_rel$resource_type = list(id = resource_type)
           }
@@ -909,7 +909,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #' @description Set subjects
     #' @param subjects a vector or list of subjects to set for the record
     setSubjects = function(subjects){
-      if(is.null(self$metadata$subjects)) self$metadata$subjects <- list()
+      self$metadata$subjects <- list()
       for(subject in subjects){
         self$addSubject(subject)
       }
@@ -1282,7 +1282,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     exportAs = function(format, filename, append_format = TRUE){
       zenodo_url <- self$links$record_html
       if(is.null(zenodo_url)) zenodo_url <- self$links$self_html
-      if(is.null(zenodo_url)){
+      if(self$is_draft){
         stop("Ups, this record seems a draft, can't export metadata until it is published!")
       }
       metadata_export_url <- switch(format,
@@ -1663,7 +1663,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       invisible(self)
     },
     
-    #'@description Maps to an \pkg{atom4R} \link{DCEntry}. Note: applies only to published records.
+    #'@description Maps to an \pkg{atom4R} \link[atom4R]{DCEntry}. Note: applies only to published records.
     #'@return an object of class \code{DCEntry}
     toDCEntry = function(){
       tmp <- tempfile()

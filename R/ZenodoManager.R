@@ -2,8 +2,8 @@
 #' @docType class
 #' @export
 #' @keywords zenodo manager
-#' @return Object of \code{\link{R6Class}} for modelling an ZenodoManager
-#' @format \code{\link{R6Class}} object.
+#' @return Object of \code{\link[R6]{R6Class}} for modelling an ZenodoManager
+#' @format \code{\link[R6]{R6Class}} object.
 #' 
 #' @examples
 #' \dontrun{
@@ -406,7 +406,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
             website = if(!is.null(x$metadata$website)) x$metadata$website else NA,
             visibility = x$access$visibility,
             member_policy = x$access$member_policy,
-            record_policy = x$access$record_policy,
+            record_submission_policy = x$access$record_submission_policy,
             review_policy = x$access$review_policy,
             url = x$links$self_html,
             created = x$created,
@@ -2035,14 +2035,11 @@ ZenodoManager <-  R6Class("ZenodoManager",
       query <- sprintf("conceptdoi:\"%s\"", conceptdoi)
       result <- self$getRecords(q = query, all_versions = TRUE, exact = TRUE)
       if(length(result)>0){
-        result <- result[[1]]
-        if(result$getConceptDOI() == conceptdoi){
-          infoMsg = sprintf("Successfully fetched published record for concept DOI '%s'!", conceptdoi)
-          cli::cli_alert_success(infoMsg)
-          self$INFO(infoMsg)
-        }else{
-          result <- NULL
-        }
+        result = result[sapply(result, function(x){x$getConceptDOI() == conceptdoi})]
+        result <- result[sapply(result, function(x){x$created == max(sapply(result, function(x){x$created}))})][[1]]
+        infoMsg = sprintf("Successfully fetched published record for concept DOI '%s'!", conceptdoi)
+        cli::cli_alert_success(infoMsg)
+        self$INFO(infoMsg)
       }else{
         result <- NULL
       }

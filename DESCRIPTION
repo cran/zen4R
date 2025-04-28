@@ -1,6 +1,6 @@
 Package: zen4R
-Version: 0.10
-Date: 2024-06-05
+Version: 0.10.1
+Date: 2025-04-28
 Title: Interface to 'Zenodo' REST API
 Authors@R: c(
   person("Emmanuel", "Blondel", role = c("aut", "cre"), email = "emmanuel.blondel1@gmail.com", comment = c(ORCID = "0000-0002-5870-5762")),
@@ -21,11 +21,11 @@ License: MIT + file LICENSE
 URL: https://github.com/eblondel/zen4R
 BugReports: https://github.com/eblondel/zen4R/issues
 LazyLoad: yes
-RoxygenNote: 7.3.1
+RoxygenNote: 7.3.2
 Encoding: UTF-8
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2024-06-05 12:45:37 UTC; emman
+Packaged: 2025-04-28 19:52:09 UTC; emman
 Author: Emmanuel Blondel [aut, cre] (<https://orcid.org/0000-0002-5870-5762>),
   Julien Barde [ctb] (<https://orcid.org/0000-0002-3519-6141>),
   Stephen Eglen [ctb] (<https://orcid.org/0000-0001-8607-8025>),
@@ -33,4 +33,4 @@ Author: Emmanuel Blondel [aut, cre] (<https://orcid.org/0000-0002-5870-5762>),
   Floris Vanderhaeghe [ctb] (<https://orcid.org/0000-0002-6378-6229>),
   Jemma Stachelek [ctb] (<https://orcid.org/0000-0002-5924-2464>)
 Repository: CRAN
-Date/Publication: 2024-06-05 16:50:02 UTC
+Date/Publication: 2025-04-28 20:10:02 UTC
