@@ -3,72 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="generator" content="litedown 0.8">
 <title>zen4R User Manual</title>
-<style type="text/css">
-/**
- * Prism.s theme ported from highlight.js's xcode style
- */
-pre code {
-  padding: 1em;
-}
-.token.comment {
-  color: #007400;
-}
-.token.punctuation {
-  color: #999;
-}
-.token.tag,
-.token.selector {
-  color: #aa0d91;
-}
-.token.boolean,
-.token.number,
-.token.constant,
-.token.symbol {
-  color: #1c00cf;
-}
-.token.property,
-.token.attr-name,
-.token.string,
-.token.char,
-.token.builtin {
-  color: #c41a16;
-}
-.token.inserted {
-  background-color: #ccffd8;
-}
-.token.deleted {
-  background-color: #ffebe9;
-}
-.token.operator,
-.token.entity,
-.token.url,
-.language-css .token.string,
-.style .token.string {
-  color: #9a6e3a;
-}
-.token.atrule,
-.token.attr-value,
-.token.keyword {
-  color: #836c28;
-}
-.token.function,
-.token.class-name {
-  color: #DD4A68;
-}
-.token.regex,
-.token.important,
-.token.variable {
-  color: #5c2699;
-}
-.token.important,
-.token.bold {
-  font-weight: bold;
-}
-.token.italic {
-  font-style: italic;
-}
-</style>
 <style type="text/css">
 body {
   font-family: sans-serif;
@@ -76,76 +12,111 @@ body {
   margin: auto;
   padding: 1em;
   line-height: 1.5;
-  box-sizing: border-box;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
 }
-body, .footnotes, code { font-size: .9em; }
+body, .abstract, code, .footnotes, footer, #refs, .caption { font-size: .9em; }
 li li { font-size: .95em; }
-*, *:before, *:after {
-  box-sizing: inherit;
-}
+ul:has(li > input[type="checkbox"]) { list-style: none; padding-left: 1em; }
+*, :before, :after { box-sizing: border-box; }
+a { color: steelblue; }
 pre, img { max-width: 100%; }
-pre, pre:hover {
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-pre code {
-  display: block;
-  overflow-x: auto;
-}
+pre { white-space: pre-wrap; word-break: break-word; }
+pre code { display: block; padding: 1em; overflow-x: auto; }
 code { font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace; }
-:not(pre) > code, code[class] { background-color: #F8F8F8; }
-code.language-undefined, pre > code:not([class]) {
-  background-color: inherit;
-  border: 1px solid #eee;
+:not(pre, th) > code, code[class], div > .caption { background: #f8f8f8; }
+pre > code:is(:not([class]), .language-plain, .language-none, .plain), .box, .figure, .table { background: inherit; border: 1px solid #eee; }
+pre > code {
+  &.message { border-color: #9eeaf9; }
+  &.warning { background: #fff3cd; border-color: #fff3cd; }
+  &.error { background: #f8d7da; border-color: #f8d7da; }
 }
+.fenced-chunk { border-left: 1px solid #666; }
+.code-fence {
+  opacity: .4;
+  border: 1px dashed #666;
+  border-left: 2px solid;
+  &:hover { opacity: inherit; }
+}
+.box, .figure, .table, table { margin: 1em auto; }
+div > .caption { padding: 1px 1em; }
+.figure { p:has(img, svg), pre:has(svg) { text-align: center; } }
+.flex-col { display: flex; justify-content: space-between; }
 table {
-  margin: auto;
-  border-top: 1px solid #666;
+  &:only-child:not(.table > *) { margin: auto; }
+  th, td { padding: 5px; font-variant-numeric: tabular-nums; }
+  thead, tfoot, tr:nth-child(even) { background: whitesmoke; }
+  thead th { border-bottom: 1px solid #ddd; }
+  &:not(.datatable-table) {
+    border-top: 1px solid #666;
+    border-bottom: 1px solid #666;
+  }
 }
-table thead th { border-bottom: 1px solid #ddd; }
-th, td { padding: 5px; }
-thead, tfoot, tr:nth-child(even) { background: #eee; }
 blockquote {
   color: #666;
   margin: 0;
-  padding-left: 1em;
-  border-left: 0.5em solid #eee;
+  padding: 1px 1em;
+  border-left: .5em solid #eee;
 }
 hr, .footnotes::before { border: 1px dashed #ddd; }
 .frontmatter { text-align: center; }
-#TOC .numbered li { list-style: none; }
-#TOC .numbered { padding-left: 0; }
-#TOC .numbered ul { padding-left: 1em; }
-table, .body h2 { border-bottom: 1px solid #666; }
+#TOC {
+  a { text-decoration: none; }
+  ul { list-style: none; padding-left: 1em; }
+  & > ul { padding: 0; }
+  ul ul { border-left: 1px solid lightsteelblue; }
+}
+.body h2 { border-bottom: 1px solid #666; }
 .body .appendix, .appendix ~ h2 { border-bottom-style: dashed; }
-.footnote-ref a::before { content: "["; }
-.footnote-ref a::after { content: "]"; }
-section.footnotes::before {
-  content: "";
-  display: block;
-  max-width: 20em;
+.main-number::after { content: "."; }
+span[class^="ref-number-"] { font-weight: bold; }
+.ref-number-fig::after, .ref-number-tab::after { content: ":"; }
+.cross-ref-chp::before { content: "Chapter "; }
+.cross-ref-sec::before { content: "Section "; }
+.cross-ref-fig::before, .ref-number-fig::before { content: "Figure "; }
+.cross-ref-tab::before, .ref-number-tab::before { content: "Table "; }
+.cross-ref-eqn::before, .MathJax_ref:has(mjx-mtext > mjx-c + mjx-c)::before { content: "Equation "; }
+.abstract, #refs {
+  &::before { display: block; margin: 1em auto; font-weight: bold; }
+}
+.abstract::before { content: "Abstract"; text-align: center; }
+#refs::before { content: "Bibliography"; font-size: 1.5em; }
+.ref-paren-open::before { content: "("; }
+.ref-paren-close::after { content: ")"; }
+.ref-semicolon::after { content: "; "; }
+.ref-and::after { content: " and "; }
+.ref-et-al::after { content: " et al."; font-style: italic; }
+.footnote-ref a {
+  &::before { content: "["; }
+  &::after { content: "]"; }
+}
+section.footnotes {
+  margin-top: 2em;
+  &::before { content: ""; display: block; max-width: 20em; }
+}
+.fade {
+  background: repeating-linear-gradient(135deg, white, white 30px, #ddd 32px, #ddd 32px);
+  opacity: 0.6;
 }
 
 @media print {
-  body {
-    font-size: 12pt;
-    max-width: 100%;
-  }
-  tr, img { page-break-inside: avoid; }
+  body { max-width: 100%; }
+  tr, img { break-inside: avoid; }
 }
 @media only screen and (min-width: 992px) {
-  pre { white-space: pre; }
+  body:not(.pagesjs) pre:has(.line-numbers):not(:hover) { white-space: pre; }
 }
 </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xiee/utils@1.14.17/css/prism-xcode.min.css">
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
 </head>
 <body>
 <div class="frontmatter">
 <div class="title"><h1>zen4R User Manual</h1></div>
-<div class="author"><h2></h2></div>
-<div class="date"><h3></h3></div>
 </div>
 <div class="body">
-<h1 id="zen4r-r-interface-to-zenodo-rest-api">zen4R - R Interface to Zenodo REST API</h1>
+<h1 id="chp:zen4r-r-interface-to-zenodo-rest-api">zen4R - R Interface to Zenodo REST API</h1>
 <p><a href="https://doi.org/10.5281/zenodo.2547036"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.2547036.svg" alt="DOI" /></a></p>
 <p>Provides an Interface to <a href="https://zenodo.org">Zenodo</a> REST API, including management of depositions, attribution of DOIs by ‘Zenodo’ and upload of files.</p>
 <hr />
@@ -207,12 +178,12 @@ section.footnotes::before {
 <a href="#package_issues"><strong>5. Issue reporting</strong></a><br/>
 <a href="#user_support"><strong>6. User support</strong></a><br/></p>
 <a name="package_overview"/>
-<h3 id="1-overview-and-vision">1. Overview and vision</h3>
+<h3 id="sec:1-overview-and-vision">1. Overview and vision</h3>
 <hr />
 <p>The <a href="https://doi.org/10.5281/zenodo.2547036">zen4R</a> package offers an R interface to the <a href="https://zenodo.org">Zenodo</a> e-infrastructure. It supports most of the Zenodo features including the management of metadata records (including versioning), upload/download of files, and assignment of Digital Object Identifier(s) (DOIs), statistics, community management.</p>
 <p><a href="https://doi.org/10.5281/zenodo.2547036">zen4R</a> is jointly developed together with the <a href="https://github.com/r-geoflow/geoflow">geoflow</a> which intends to facilitate and automate the production of geographic metadata documents and their associated datasources, where <a href="https://doi.org/10.5281/zenodo.2547036">zen4R</a> is used to assign DOIs and cross-reference these DOIs in other metadata documents such as geographic metadata (ISO 19115/19139) hosted in metadata catalogues and open data portals.</p>
 <a name="package_status"/>
-<h3 id="2-development-status">2. Development status</h3>
+<h3 id="sec:2-development-status">2. Development status</h3>
 <hr />
 <ul>
 <li>January 2019: Inception. Code source managed on GitHub</li>
@@ -220,16 +191,16 @@ section.footnotes::before {
 <li>Oct 2023/June 2024: upgrade to follow the move of Zenodo to Invenio RDM</li>
 </ul>
 <a name="package_credits"/>
-<h3 id="3-credits">3. Credits</h3>
+<h3 id="sec:3-credits">3. Credits</h3>
 <hr />
-<p>© 2019, Emmanuel Blondel</p>
+<p>(c) 2019, Emmanuel Blondel</p>
 <p>Package distributed under MIT license.</p>
 <p>If you use <code>zen4R</code>, I would be very grateful if you can add a citation in your published work. By citing <code>zen4R</code>, beyond acknowledging the work, you contribute to make it more visible and guarantee its growing and sustainability. For citation, please use the DOI: <a href="https://doi.org/10.5281/zenodo.2547036"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.2547036.svg" alt="DOI" /></a></p>
 <a name="user_guide"/>
-<h3 id="4-user-guide">4. User guide</h3>
+<h3 id="sec:4-user-guide">4. User guide</h3>
 <hr />
 <a name="install_guide"/>
-<h4 id="4-1-how-to-install-zen4r-in-r">4.1 How to install zen4R in R</h4>
+<h4 id="sec:4-1-how-to-install-zen4r-in-r">4.1 How to install zen4R in R</h4>
 <p>For now, the package can be installed from Github</p>
 <pre><code class="language-R">install.packages(&quot;remotes&quot;)
 </code></pre>
@@ -241,7 +212,7 @@ install_github(&quot;eblondel/zen4R&quot;)
 <pre><code>sudo apt-get install -y libsodium-dev
 </code></pre>
 <a name="ZenodoManager"/>
-<h4 id="4-2-connect-to-zenodo-rest-api">4.2 Connect to Zenodo REST API</h4>
+<h4 id="sec:4-2-connect-to-zenodo-rest-api">4.2 Connect to Zenodo REST API</h4>
 <p>The main entry point of <code>zen4R</code> is the <code>ZenodoManager</code>. Some basic methods, such as listing licenses known by Zenodo, do not require the token.</p>
 <pre><code class="language-R">zenodo &lt;- ZenodoManager$new()
 </code></pre>
@@ -266,10 +237,10 @@ install_github(&quot;eblondel/zen4R&quot;)
 )
 </code></pre>
 <a name="ZenodoDeposit-query"/>
-<h4 id="4-3-query-zenodo-deposited-records">4.3 Query Zenodo deposited records</h4>
+<h4 id="sec:4-3-query-zenodo-deposited-records">4.3 Query Zenodo deposited records</h4>
 <p><a href="https://doi.org/10.5281/zenodo.2547036">zen4R</a> offers several methods to query Zenodo depositions.</p>
 <a name="ZenodoDeposit-query-getdepositions"/>
-<h5 id="4-3-1-get-depositions">4.3.1 Get Depositions</h5>
+<h5 id="sec:4-3-1-get-depositions">4.3.1 Get Depositions</h5>
 <p>The generic way to query depositions is to use the method <code>getDepositions</code>. If specified with no parameter, all depositions will be returned:</p>
 <pre><code>my_zenodo_records &lt;- zenodo$getDepositions()
 </code></pre>
@@ -277,22 +248,22 @@ install_github(&quot;eblondel/zen4R&quot;)
 <p>Since the Zenodo API is paginated, an extra parameter <code>size</code> can be specified to indicate the number of records to be queried by page (default value is 10).</p>
 <p>By default, the Zenodo API will return only the latest versions of a record. It is possible to retrieve all versions of records by specifying <code>all_versions = FALSE</code>.</p>
 <a name="ZenodoDeposit-query-getdepositionbyconceptdoi"/>
-<h5 id="4-3-2-get-deposition-by-concept-doi">4.3.2 Get Deposition By Concept DOI</h5>
+<h5 id="sec:4-3-2-get-deposition-by-concept-doi">4.3.2 Get Deposition By Concept DOI</h5>
 <p>It is possible to interrogate and get a Zenodo record with its concept DOI (generic DOI common to all versions of a record):</p>
 <pre><code>my_rec &lt;- zenodo$getDepositionByConceptDOI(&quot;&lt;my_concept_doi&gt;&quot;)
 </code></pre>
 <a name="ZenodoDeposit-query-getdepositionbydoi"/>
-<h5 id="4-3-3-get-deposition-by-doi">4.3.3 Get Deposition By DOI</h5>
+<h5 id="sec:4-3-3-get-deposition-by-doi">4.3.3 Get Deposition By DOI</h5>
 <p>It is possible to interrogate and get a Zenodo record with its DOI (record version-specific DOI):</p>
 <pre><code>my_rec &lt;- zenodo$getDepositionByDOI(&quot;&lt;my_doi&gt;&quot;)
 </code></pre>
 <a name="ZenodoDeposit-query-getdepositionbyid"/>
-<h5 id="4-3-4-get-deposition-by-zenodo-id">4.3.4 Get Deposition By Zenodo ID</h5>
+<h5 id="sec:4-3-4-get-deposition-by-zenodo-id">4.3.4 Get Deposition By Zenodo ID</h5>
 <p>It is possible to interrogate and get a Zenodo record with its internal ID:</p>
 <pre><code>my_rec &lt;- zenodo$getDepositionById(id)
 </code></pre>
 <a name="ZenodoDeposit-getversions"/>
-<h5 id="4-3-4-get-versions-of-a-zenodo-record">4.3.4 Get versions of a Zenodo record</h5>
+<h5 id="sec:4-3-4-get-versions-of-a-zenodo-record">4.3.4 Get versions of a Zenodo record</h5>
 <p>For a given record, it’s possible to get the list of versions of this record:</p>
 <pre><code>my_rec &lt;- zenodo$getDepositionByConceptDOI(&quot;&lt;some_concept_doi&gt;&quot;)
 my_rec$getVersions()
@@ -302,9 +273,9 @@ my_rec$getVersions()
 <p>Note: This function is not provided through the Zenodo API, but exploits to Zenodo website and has been added to <a href="https://doi.org/10.5281/zenodo.2547036">zen4R</a> to facilitate the browsing of record versions.</p>
 </blockquote>
 <a name="ZenodoDeposit"/>
-<h4 id="4-4-manage-zenodo-record-depositions">4.4 Manage Zenodo record depositions</h4>
+<h4 id="sec:4-4-manage-zenodo-record-depositions">4.4 Manage Zenodo record depositions</h4>
 <a name="ZenodoDeposit-emptyRecord"/>
-<h5 id="4-4-1-create-an-empty-record">4.4.1 Create an empty record</h5>
+<h5 id="sec:4-4-1-create-an-empty-record">4.4.1 Create an empty record</h5>
 <p>It is possible to create and deposit an empty record, ready for editing. For that, run the following R code:</p>
 <pre><code class="language-r">myrec &lt;- zenodo$createEmptyRecord()
 </code></pre>
@@ -313,7 +284,7 @@ my_rec$getVersions()
 </code></pre>
 <p>The next section explains how to fill the record with metadata elements.</p>
 <a name="ZenodoDeposit-fill"/>
-<h5 id="4-4-2-fill-a-record">4.4.2 Fill a record</h5>
+<h5 id="sec:4-4-2-fill-a-record">4.4.2 Fill a record</h5>
 <p>Zenodo records can be described a set of multiple metadata elements. For a full documentation of these metadata elements, please consult the zen4R documentation with <code>?ZenodoRecord</code>. The online Zenodo API documentation can be consulted as well <a href="https://developers.zenodo.org/#representation">here</a>.</p>
 <p>Example of record filling with metadata elements:</p>
 <pre><code class="language-r">myrec &lt;- ZenodoRecord$new()
@@ -346,19 +317,19 @@ myrec$addRelatedIdentifier(&quot;https://github.com/eblondel/zen4R/wiki#user_gui
 
 </code></pre>
 <a name="ZenodoDeposit-deposit"/>
-<h5 id="4-4-3-deposit-update-a-record">4.4.3 Deposit/update a record</h5>
+<h5 id="sec:4-4-3-deposit-update-a-record">4.4.3 Deposit/update a record</h5>
 <p>Once the record is edited/updated, you can deposit it on Zenodo with the following code:</p>
 <pre><code class="language-r">myrec &lt;- zenodo$depositRecord(myrec)
 </code></pre>
 <p>In order to apply further methods on this record (e.g. upload a file, publish/delete a record), you need to get the output of the function <code>depositRecord</code> (see example above) since after the deposition Zenodo will return the record that now contains an internal <code>id</code> required to identify and apply further actions. This id can be inspected with <code>myrec$id</code>.</p>
 <p>Instead, if you don’t get the output of <code>depositRecord</code> and try to upload files or publish/delete the record based on the local record you handle (built upon <code>ZenodoRecord$new()</code>), this will not work. Because it is a local record, the <code>id</code> of the record will still be <code>NULL</code>, with no value assigned by Zenodo, and Zenodo will be unable to identify which record needs to be handled.</p>
 <a name="ZenodoDeposit-delete"/>
-<h5 id="4-4-4-delete-a-record">4.4.4 Delete a record</h5>
+<h5 id="sec:4-4-4-delete-a-record">4.4.4 Delete a record</h5>
 <p>A record deposited on Zenodo but not yet published remains in the <a href="https://zenodo.org/deposit">Upload</a> area of Zenodo (a kind of staging area where draft records are in edition). As long as it is not published, a record can be deleted from the Zenodo <a href="https://zenodo.org/deposit">Upload</a> area using:</p>
 <pre><code class="language-r">zenodo$deleteRecord(myrec$id)
 </code></pre>
 <a name="ZenodoDeposit-publish"/>
-<h5 id="4-4-5-publish-a-record">4.4.5 Publish a record</h5>
+<h5 id="sec:4-4-5-publish-a-record">4.4.5 Publish a record</h5>
 <p>To publish a deposited record and make it available publicly online on Zenodo, the following method can be run:</p>
 <pre><code class="language-r">myrec &lt;- zenodo$publishRecord(myrec$id)
 </code></pre>
@@ -367,7 +338,7 @@ myrec$addRelatedIdentifier(&quot;https://github.com/eblondel/zen4R/wiki#user_gui
 </code></pre>
 <p>The publication of a record requires at least to have uploaded at least one file for this record. See section <a href="https://github.com/eblondel/zen4R/wiki#44-manage-zenodo-record-deposition-files">4.4.1 Upload file</a>.</p>
 <a name="ZenodoDeposit-edit"/>
-<h5 id="4-4-6-edit-update-a-published-record">4.4.6 Edit/Update a published record</h5>
+<h5 id="sec:4-4-6-edit-update-a-published-record">4.4.6 Edit/Update a published record</h5>
 <p>It is possible to update metadata of a published record, but not to modify the files associated to it. In order to update metadata of a published record, the <code>state</code> of this record has to be modified to make it editable. For that, use the <code>editRecord</code> function giving the <code>id</code> of the record to edit:</p>
 <pre><code>myrec &lt;- zenodo$editRecord(myrec$id)
 </code></pre>
@@ -377,12 +348,12 @@ myrec &lt;- zenodo$depositRecord(myrec, publish = FALSE)
 </code></pre>
 <p>Since the record has been switched back to <code>draft</code> state, the record has to be re-published otherwise it will remain a draft record in your Zenodo user session.</p>
 <a name="ZenodoDeposit-discard"/>
-<h5 id="4-4-7-discard-changes-of-a-draft-record">4.4.7 Discard changes of a draft record</h5>
+<h5 id="sec:4-4-7-discard-changes-of-a-draft-record">4.4.7 Discard changes of a draft record</h5>
 <p>In case you started editing a record and you want to discard changes on it, it is possible to do it with the <code>discardChanges</code>.</p>
 <pre><code>zenodo$discardChanges(myrec$id)
 </code></pre>
 <a name="ZenodoDeposit-version"/>
-<h5 id="4-4-8-create-a-new-version-record">4.4.8 Create a new version record</h5>
+<h5 id="sec:4-4-8-create-a-new-version-record">4.4.8 Create a new version record</h5>
 <p>To create a new record version, you should first retrieve the record for which you want to create a new version. You can retrieve this record with methods based on DOI such as  <code>getDepositionByConceptDOI</code> (to get a record based on concept DOI) or <code>getDepositionByDOI</code>; or by Zenodo <code>id</code> with <code>getDepositionById</code> :</p>
 <pre><code class="language-r">#get record by DOI
 myrec &lt;- zenodo$getDepositionByDOI(&quot;&lt;some doi&gt;&quot;)
@@ -395,28 +366,28 @@ myrec &lt;- zenodo$depositRecordVersion(myrec, delete_latest_files = TRUE, files
 </code></pre>
 <p>The function <code>depositRecordVersion</code> will create a new version for the published record. The parameter <code>delete_latest_files</code> (default = <code>TRUE</code>) allows to delete latest files (knowing that a new record version expect to have different file(s) than the latest version). The <code>files</code> parameter allows to list the files to be uploaded. As for the <code>depositRecord</code>, it is possible to publish the record with the <code>publish</code> paramater.</p>
 <a name="ZenodoDepositFile"/>
-<h4 id="4-5-manage-zenodo-record-deposition-files">4.5 Manage Zenodo record deposition files</h4>
+<h4 id="sec:4-5-manage-zenodo-record-deposition-files">4.5 Manage Zenodo record deposition files</h4>
 <a name="ZenodoDepositFile-upload"/>
-<h5 id="4-5-1-upload-file">4.5.1 Upload file</h5>
+<h5 id="sec:4-5-1-upload-file">4.5.1 Upload file</h5>
 <p>With <code>zen4R</code>, it is very easy to upload a file to a record deposition. The record should first deposited on Zenodo. To upload a file, the following single line can be used, where the file <code>path</code> is specified and the record deposit to which the file should be uploaded:</p>
 <pre><code class="language-r">zenodo$uploadFile(&quot;path/to/your/file&quot;, record = myrec)
 </code></pre>
 <a name="ZenodoDepositFile-get"/>
-<h5 id="4-5-2-get-files">4.5.2 Get files</h5>
+<h5 id="sec:4-5-2-get-files">4.5.2 Get files</h5>
 <p>To get the list of files attached to a record, you can specify the following method adding the record <code>id</code>:</p>
 <pre><code class="language-r">zen_files &lt;- zenodo$getFiles(myrec$id)
 </code></pre>
 <p>This retrieves a list of files. Each file has a unique <code>id</code>, that can be used to for file deletion.</p>
 <a name="ZenodoDepositFile-delete"/>
-<h5 id="4-5-3-delete-file">4.5.3 Delete file</h5>
+<h5 id="sec:4-5-3-delete-file">4.5.3 Delete file</h5>
 <p>The following example shows how to delete the first file attached to the record defined earlier. To delete a file, we need to specify both the record and file identifiers:</p>
 <pre><code class="language-r">zenodo$deleteFile(myrec$id, zen_files[[1]]$id)
 </code></pre>
 <a name="ZenodoDeposit-communities"/>
-<h4 id="4-6-manage-zenodo-record-deposition-files">4.6 Manage Zenodo record deposition files</h4>
+<h4 id="sec:4-6-manage-zenodo-record-deposition-files">4.6 Manage Zenodo record deposition files</h4>
 <p>With the move to Invenio, the addition of a record to a community is not anymore managed as part of the metadata. The way to manage communities will differ depending on the status of the record you want to add to a community.</p>
 <a name="ZenodoDeposit-communities-published"/>
-<h5 id="4-6-1-submit-a-published-record-to-communities">4.6.1 Submit a published record to communities</h5>
+<h5 id="sec:4-6-1-submit-a-published-record-to-communities">4.6.1 Submit a published record to communities</h5>
 <p>For a record already published (with a DOI), it is very straighforward to submit it to communities (whether or not you are the manager of these communities). To do so, run the following code over your <code>record</code>:</p>
 <pre><code class="language-r">communities = c(&quot;openfair&quot;, &quot;test&quot;)
 zenodo$submitRecordToCommunities(record, communities)
@@ -424,7 +395,7 @@ zenodo$submitRecordToCommunities(record, communities)
 <p>In case a community name doesn’t match an existing community, some warning wil be raised without any blocking error.</p>
 <p>As submitter of a record to a community, you have privileges to <em>cancel</em> this request. As manager of a community, you have privileges either to <em>accept</em> or <em>decline</em> a request to add a record to a community. If you want to learn about requests management, please see section 4.11.</p>
 <a name="ZenodoDeposit-communities-draft"/>
-<h5 id="4-6-2-submit-a-draft-record-to-a-community">4.6.2 Submit a draft record to a community</h5>
+<h5 id="sec:4-6-2-submit-a-draft-record-to-a-community">4.6.2 Submit a draft record to a community</h5>
 <p>Adding a draft record to a community is possible with the new Zenodo platform. This method is ‘kind of’ analog of what was possible with the legacy Zenodo and zen4R version &lt; 0.10. Before, the addition of a draft record to a community was part of the metadata elements. With the new Zenodo, thi action is done with 2 different methods:</p>
 <ul>
 <li>a first method that will “attach” the record the community:</li>
@@ -450,11 +421,11 @@ ZENODO$createReviewRequest(record, my_community)
 <pre><code class="language-r">ZENODO$deleteReviewRequest(record)
 </code></pre>
 <a name="ZenodoDepositMetadata"/>
-<h4 id="4-7-export-zenodo-record-metadata">4.7 Export Zenodo record metadata</h4>
+<h4 id="sec:4-7-export-zenodo-record-metadata">4.7 Export Zenodo record metadata</h4>
 <p>For a given Zenodo record, <a href="https://doi.org/10.5281/zenodo.2547036">zen4R</a> let you export the metadata in a metadata file, with a series of <code>exportAs*</code> methods.</p>
 <p>The metadata formats supported are: <code>BibTeX</code>, <code>CSL</code>, <code>DataCite</code>, <code>DublinCore</code>, <code>DCAT</code>, <code>JSON</code>, <code>JSON-LD</code>, <code>GeoJSON</code>, <code>MARCXML</code></p>
 <a name="ZenodoDepositMetadata-byformat"/>
-<h5 id="4-7-1-export-zenodo-record-metadata-by-format">4.7.1 Export Zenodo record metadata by format</h5>
+<h5 id="sec:4-7-1-export-zenodo-record-metadata-by-format">4.7.1 Export Zenodo record metadata by format</h5>
 <p>To export a record in a given format, they are two ways:</p>
 <pre><code>#using the generic exportAs
 myrec$exportAs(&quot;BibTeX&quot;, filename = &quot;myfilename&quot;)
@@ -464,31 +435,31 @@ myrec$exportAsBibTeX(filename = &quot;myfilename&quot;)
 </code></pre>
 <p>The <code>filename</code> provided should not include the file extension that is managed by zen4R, depending on the chosen format.</p>
 <a name="ZenodoDepositMetadata-allformats"/>
-<h5 id="4-7-2-export-zenodo-record-metadata-all-formats">4.7.2 Export Zenodo record metadata - all formats</h5>
+<h5 id="sec:4-7-2-export-zenodo-record-metadata-all-formats">4.7.2 Export Zenodo record metadata - all formats</h5>
 <p>To export a record in all above metadata formats:</p>
 <pre><code>myrec$exportAsAllFormats(filename = &quot;myfilename&quot;)
 </code></pre>
 <p>The <code>filename</code> provided should not include the file extension that is managed by zen4R, depending on the format.</p>
 <a name="ZenodoVocabularies"/>
-<h4 id="4-8-browse-zenodo-controlled-vocabularies">4.8 Browse Zenodo controlled vocabularies</h4>
+<h4 id="sec:4-8-browse-zenodo-controlled-vocabularies">4.8 Browse Zenodo controlled vocabularies</h4>
 <a name="ZenodoVocabularies-communities"/>
-<h5 id="4-8-1-communities">4.8.1 Communities</h5>
+<h5 id="sec:4-8-1-communities">4.8.1 Communities</h5>
 <pre><code>communities &lt;- zenodo$getCommunities()
 com &lt;- zenodo$getCommunity(&quot;openfair&quot;)
 </code></pre>
 <a name="ZenodoVocabularies-licenses"/>
-<h5 id="4-8-2-licenses">4.8.2 Licenses</h5>
+<h5 id="sec:4-8-2-licenses">4.8.2 Licenses</h5>
 <pre><code>licenses &lt;- zenodo$getLicenses()
 lic &lt;- zenodo$getLicenseById(&quot;mit&quot;)
 </code></pre>
 <a name="ZenodoVocabularies-funders"/>
-<h5 id="4-8-3-funders">4.8.3 Funders</h5>
+<h5 id="sec:4-8-3-funders">4.8.3 Funders</h5>
 <pre><code>funders &lt;- zenodo$getFunders()
 some_funders &lt;- ZENODO$getFundersByName(&quot;EU&quot;)
 some_funder &lt;-ZENODO$getFunderById(&quot;04facnr46&quot;)
 </code></pre>
 <a name="ZenodoVocabularies-grants"/>
-<h5 id="4-8-4-grants-awards">4.8.4 Grants / Awards</h5>
+<h5 id="sec:4-8-4-grants-awards">4.8.4 Grants / Awards</h5>
 <p>With the move to Invenio, grants are generally referred to awards. For backward-compatibility, methods
 referring to “grants” are still supported with warning.</p>
 <pre><code>grants &lt;- zenodo$getAwards()
@@ -496,10 +467,10 @@ some_grant &lt;- zenodo$getAwardById(&quot;00k4n6c32::862409&quot;)
 
 </code></pre>
 <a name="ZenodoRecord-query"/>
-<h4 id="4-9-query-zenodo-published-records">4.9 Query Zenodo published records</h4>
+<h4 id="sec:4-9-query-zenodo-published-records">4.9 Query Zenodo published records</h4>
 <p><a href="https://doi.org/10.5281/zenodo.2547036">zen4R</a> offers several methods to query Zenodo records.</p>
 <a name="ZenodoRecord-getrecords"/>
-<h5 id="4-9-1-get-records">4.9.1 Get Records</h5>
+<h5 id="sec:4-9-1-get-records">4.9.1 Get Records</h5>
 <p>The generic way to query records is to use the method <code>getRecords</code></p>
 <pre><code>my_zenodo_records &lt;- zenodo$getRecords(q = &quot;&lt;my_elastic_search_query&gt;&quot;)
 </code></pre>
@@ -507,22 +478,22 @@ some_grant &lt;- zenodo$getAwardById(&quot;00k4n6c32::862409&quot;)
 <p>Since the Zenodo API is paginated, an extra parameter <code>size</code> can be specified to indicate the number of records to be queried by page (default value is 10).</p>
 <p>By default, the Zenodo API will return only the latest versions of a record. It is possible to retrieve all versions of records by specifying <code>all_versions = FALSE</code>.</p>
 <a name="ZenodoRecord-getrecordbyconceptdoi"/>
-<h5 id="4-9-2-get-record-by-concept-doi">4.9.2 Get Record By Concept DOI</h5>
+<h5 id="sec:4-9-2-get-record-by-concept-doi">4.9.2 Get Record By Concept DOI</h5>
 <p>It is possible to interrogate and get a Zenodo record with its concept DOI (generic DOI common to all versions of a record):</p>
 <pre><code>my_rec &lt;- zenodo$getRecordByConceptDOI(&quot;&lt;my_concept_doi&gt;&quot;)
 </code></pre>
 <a name="ZenodoRecord-getrecordbydoi"/>
-<h5 id="4-9-3-get-record-by-doi">4.9.3 Get Record By DOI</h5>
+<h5 id="sec:4-9-3-get-record-by-doi">4.9.3 Get Record By DOI</h5>
 <p>It is possible to interrogate and get a Zenodo record with its DOI (record version-specific DOI):</p>
 <pre><code>my_rec &lt;- zenodo$getRecordByDOI(&quot;&lt;my_doi&gt;&quot;)
 </code></pre>
 <a name="ZenodoRecord-getrecordbyid"/>
-<h5 id="4-9-4-get-record-by-zenodo-id">4.9.4 Get Record By Zenodo ID</h5>
+<h5 id="sec:4-9-4-get-record-by-zenodo-id">4.9.4 Get Record By Zenodo ID</h5>
 <p>It is possible to interrogate and get a Zenodo record with its internal ID:</p>
 <pre><code>my_rec &lt;- zenodo$getRecordById(id)
 </code></pre>
 <a name="ZenodoRecord-download"/>
-<h4 id="4-10-download-files-from-zenodo-records">4.10 Download files from Zenodo records</h4>
+<h4 id="sec:4-10-download-files-from-zenodo-records">4.10 Download files from Zenodo records</h4>
 <p><a href="https://doi.org/10.5281/zenodo.2547036">zen4R</a> offers methods to download files Zenodo published records.</p>
 <p>Being published records, the latter and their files are accessible without any user token using <code>zenodo &lt;- ZenodoManager$new(logger = &quot;INFO&quot;)</code>. Files can be then downloaded either from a Zenodo <code>record</code> object (fetched with <code>getRecordByDOI</code>):</p>
 <pre><code class="language-r">  rec &lt;- zenodo$getRecordByDOI(&quot;10.5281/zenodo.3378733&quot;)
@@ -559,7 +530,7 @@ some_grant &lt;- zenodo$getAwardById(&quot;00k4n6c32::862409&quot;)
   download_zenodo(&quot;10.5281/zenodo.2547036&quot;, parallel = TRUE, parallel_handler = mclapply, mc.cores = 2)
 </code></pre>
 <a name="Zenodo-requests"/>
-<h4 id="4-11-manage-requests">4.11 Manage requests</h4>
+<h4 id="sec:4-11-manage-requests">4.11 Manage requests</h4>
 <p>In Zenodo, requests refer essentially to requests made to add records to a community. Depending on your privileges, you will be able to perform different kind of operations over requests:</p>
 <ul>
 <li>as submitter of a record to a community, you will be able to list the requests you made and <em>cancel</em> (eventually) a request</li>
@@ -588,14 +559,12 @@ ZENODO$deleteRequest(reqs[[2]]$id, message = &quot;Unfortunately your record doe
 </code></pre>
 <p>In the case of a request to community made on a draft record (see section 4.6.2), if the community manager accepts the request, the record will be published. If the request is <em>declined</em> , you may want to review/edit the record and resubmit it again (see section 4.6.2 with method <code>submitRecordForReview</code>).</p>
 <a name="package_issues"/>
-<h3 id="5-issue-reporting">5. Issue reporting</h3>
+<h3 id="sec:5-issue-reporting">5. Issue reporting</h3>
 <hr />
 <p>Issues can be reported at <a href="https://github.com/eblondel/zen4R/issues">https://github.com/eblondel/zen4R/issues</a></p>
 <a name="user_support"/>
-<h3 id="6-user-support">6. User support</h3>
+<h3 id="sec:6-user-support">6. User support</h3>
 <p>Do not hesitate to ask your question at <a href="https://github.com/eblondel/zen4R/discussions">https://github.com/eblondel/zen4R/discussions</a></p>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
 </body>
 </html>

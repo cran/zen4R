@@ -30,18 +30,24 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
                           "isidenticalto", "isalternateidentifier", "isreviewedby", "reviews", 
                           "isderivedfrom", "issourceof", "requires", "isrequiredby", "isobsoletedby", 
                           "obsoletes"),
-    export_formats = c("BibTeX","CSL","DataCite","DublinCore","DCAT","JSON","JSON-LD","GeoJSON","MARCXML"),
+    export_formats = c("BibTeX","CSL","DataCite","DataCiteXML", "DataCiteJSON", "DublinCore","DCAT",
+                       "JSON","JSON-LD","GeoJSON","MARCXML","CFF", "CodeMeta","DataPackage"),
     getExportFormatExtension = function(format){
       switch(format,
          "BibTeX" = "bib",
          "CSL" = "json",
          "DataCite" ="xml",
+         "DataCiteXML" = "xml",
+         "DataCiteJSON" = "json",
          "DublinCore" = "xml",
          "DCAT" = "rdf",
          "JSON" = "json",
          "JSON-LD" = "json",
          "GeoJSON" = "json",
-         "MARCXML" = "xml"           
+         "MARCXML" = "xml",
+         "CFF" = "yaml",
+         "CodeMeta" = "json",
+         "DataPackage" = "json"
       )
     },
     fromList = function(obj){
@@ -1273,8 +1279,8 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     },
     
     #' @description Exports record to a file by format.
-    #' @param format the export format to use. Possibles values are: BibTeX, CSL, DataCite, DublinCore, DCAT, 
-    #'   JSON, JSON-LD, GeoJSON, MARCXML
+    #' @param format a valid Zenodo export format among the following: BibTeX, CSL, DataCite (or DataCiteXML), DublinCore, 
+    #' DCAT, JSON, JSON-LD, GeoJSON, MARCXML, DataCiteJSON, CodeMeta, DataPackage, CFF.
     #' @param filename the target filename (without extension)
     #' @param append_format wether format name has to be appended to the filename. Default is \code{TRUE} (for
     #' backward compatibility reasons). Set it to \code{FALSE} if you want to use only the \code{filename}.
@@ -1289,12 +1295,17 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
         "BibTeX" = paste0(zenodo_url,"/export/bibtex"),
         "CSL" =  paste0(zenodo_url,"/export/csl"),
         "DataCite" =  paste0(zenodo_url,"/export/datacite-xml"),
+        "DataCiteXML" = paste0(zenodo_url,"/export/datacite-xml"),
+        "DataCiteJSON" = paste0(zenodo_url,"/export/datacite-json"),
         "DublinCore" =  paste0(zenodo_url,"/export/dublincore"),
         "DCAT" =  paste0(zenodo_url,"/export/dcat-ap"),
         "JSON" =  paste0(zenodo_url,"/export/json"),
         "JSON-LD" =  paste0(zenodo_url,"/export/json-ld"),
         "GeoJSON" =  paste0(zenodo_url,"/export/geojson"),
         "MARCXML" =  paste0(zenodo_url,"/export/xm"),
+        "CodeMeta" = paste0(zenodo_url,"/export/codemeta"),
+        "CFF" = paste0(zenodo_url,"/export/cff"),
+        "DataPackage" = paste0(zenodo_url,"/export/datapackage"),
         NULL
       )
       if(is.null(metadata_export_url)){
@@ -1325,11 +1336,26 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       self$exportAs("CSL", filename)
     },
     
-    #' @description Exports record as DataCite
+    #' @description Exports record as DataCite (same as \code{exportAsDataCiteXML})
     #' @param filename the target filename (without extension)
     #' @return the writen file name (with extension)
     exportAsDataCite = function(filename){
       self$exportAs("DataCite", filename)
+    },
+    
+    #' @description Exports record as DataCite XML
+    #' @param filename the target filename (without extension)
+    #' @return the writen file name (with extension)
+    exportAsDataCiteXML = function(filename){
+      self$exportAs("DataCiteXML", filename)
+    },
+    
+    
+    #' @description Exports record as DataCite JSON
+    #' @param filename the target filename (without extension)
+    #' @return the writen file name (with extension)
+    exportAsDataCiteJSON = function(filename){
+      self$exportAs("DataCiteJSON", filename)
     },
     
     #' @description Exports record as DublinCore
@@ -1373,11 +1399,53 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       self$exportAs("MARCXML", filename)
     },
     
+    #' @description Exports record as CodeMeta
+    #' @param filename the target filename (without extension)
+    #' @return the writen file name (with extension)
+    exportAsCodeMeta = function(filename){
+      self$exportAs("CodeMeta", filename)
+    },
+    
+    #' @description Exports record as Citation File Format
+    #' @param filename the target filename (without extension)
+    #' @return the writen file name (with extension)
+    exportAsCFF = function(filename){
+      self$exportAs("CFF", filename)
+    },
+    
+    #' @description Exports record as DataPackage
+    #' @param filename the target filename (without extension)
+    #' @return the writen file name (with extension)
+    exportAsDataPackage = function(filename){
+      self$exportAs("DataPackage", filename)
+    },
+    
     #' @description Exports record in all Zenodo record export formats. This function will
     #'    create one file per Zenodo metadata formats.
     #' @param filename the target filename (without extension)
     exportAsAllFormats = function(filename){
       invisible(lapply(private$export_formats, self$exportAs, filename))
+    },
+    
+    #'@description Get record citation
+    #'@param style the style character string among. Possible values "havard-cite-them-right", "apa",
+    #' "modern-language-association","vancouver","chicago-fullnote-bibliography", "ieee", or "bibtex"
+    #'@return the citation text
+    getCitation = function(style = c("havard-cite-them-right",
+                                     "apa",
+                                     "modern-language-association",
+                                     "vancouver",
+                                     "chicago-fullnote-bibliography",
+                                     "ieee",
+                                     "bibtex")){
+      style <- match.arg(style)
+      if (style == "bibtex"){
+        citation_content <- httr::GET(paste0(self$links$self,"?style=", style), httr::accept("application/x-bibtex"))
+      } else {
+        citation_content <- httr::GET(paste0(self$links$self,"?style=", style), httr::accept("text/x-bibliography"))
+      }
+        citation_text <- httr::content(citation_content,type = "text/x-bibliography")
+      return(citation_text)
     },
     
     #' @description list files attached to the record
@@ -1426,13 +1494,6 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       }else{
         files.list <- self$files
 
-        if(!overwrite){
-          files.list <- files.list[
-            which(sapply(files.list, function(x){
-            !file.exists(file.path(path, x$filename))}))
-          ]
-        }
-
         if(length(files)>0) files.list <- files.list[sapply(files.list, function(x){x$filename %in% files})]
         if(length(files.list)==0){
           errMsg <- sprintf("No files available in record '%s' (doi: '%s') for file names [%s]",
@@ -1443,16 +1504,27 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
         }
         for(file in files){
           if(!file %in% sapply(files.list, function(x){x$filename})){
-            warnMsg = sprintf("No files available in record '%s' (doi: '%s') for file name '%s': ",
+            warnMsg = sprintf("No file available in record '%s' (doi: '%s') with name '%s': ",
                               self$id, self$pids$doi$identifier, file)
             cli::cli_alert_warning(warnMsg)
             self$WARN(warnMSg)
           }
         }
 
+        if(!overwrite){
+          warnMsg = sprintf("Overwrite is 'false', aborting download of existing files")
+          cli::cli_alert_warning(warnMsg)
+          files.list <- files.list[
+            which(sapply(files.list, function(x){
+              !file.exists(file.path(path, x$filename))}))
+          ]
+        }
+        
+        if(length(files.list)==0) return()
+
         files_summary <- sprintf("Will download %s file%s from record '%s' (doi: '%s') - total size: %s",
-                                length(files.list), ifelse(length(files.list)>1,"s",""), self$id, self$pids$doi$identifier, 
-                                human_filesize(sum(sapply(files.list, function(x){x$filesize}))))
+                                 length(files.list), ifelse(length(files.list)>1,"s",""), self$id, self$pids$doi$identifier, 
+                                 human_filesize(sum(sapply(files.list, function(x){x$filesize})))) 
         
         #download_file util
         download_file <- function(file){
@@ -1468,7 +1540,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
           options(timeout = timeout)
           download_try = try(
             download.file(
-              url = file$download, 
+              url = URLencode(file$download), 
               destfile = target_file, 
               quiet = quiet, 
               mode = "wb"
@@ -1492,7 +1564,9 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
           target_file <-file.path(path, file$filename)
           #check md5sum
           target_file_md5sum <- tools::md5sum(target_file)
-          if(target_file_md5sum==file$checksum){
+          # need unname() as it is a named vector, we just want the md5sum
+          md5sum_match <- identical(unname(target_file_md5sum), file$checksum)
+          if(md5sum_match){
             if (!quiet){
               infoMsg = sprintf("File '%s': integrity verified (md5sum: %s)\n",
                                 file$filename, file$checksum)
@@ -1701,6 +1775,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #'@description Maps to an \pkg{atom4R} \link[atom4R]{DCEntry}. Note: applies only to published records.
     #'@return an object of class \code{DCEntry}
     toDCEntry = function(){
+      requireNamespace("atom4R")
       tmp <- tempfile()
       dcfile <- self$exportAsDublinCore(filename = tmp)
       return(atom4R::DCEntry$new(xml = XML::xmlParse(dcfile)))
@@ -1728,7 +1803,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     #' @return a \code{data.frame} with the record versions
     getVersions = function(){
       zenodo <- ZenodoManager$new(url = paste0(unlist(strsplit(self$links$self, "/api"))[1], "/api"))
-      records <- zenodo$getRecords(q = sprintf("conceptrecid:%s", self$getConceptId()), all_versions = T, size = 1000)
+      records <- zenodo$getRecords(q = sprintf("conceptrecid:%s", self$getConceptId()), all_versions = T, size = 100, exact = FALSE)
       
       versions <- data.frame(
         created = character(0),

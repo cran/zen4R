@@ -1,5 +1,28 @@
 # Change log
 
+## [zen4R 0.10.3](https://github.com/eblondel/zen4R) |
+[![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/package=zen4R)
+
+**Corrections**
+
+* [#181](https://github.com/eblondel/zen4R/issues/181) Fix file download behavior with `overwrite` argument
+* [#183](https://github.com/eblondel/zen4R/issues/183) URLs with spaces result in downstream failures
+* [#196](https://github.com/eblondel/zen4R/issues/196) Paginated `getRecords` doesn't work anymore
+* [#197](https://github.com/eblondel/zen4R/issues/197) Zenodo record `getVersions` doesn't work anymore
+* [#198](https://github.com/eblondel/zen4R/issues/198) Paginated `getDepositions` doesn't work anymore
+* [#199](https://github.com/eblondel/zen4R/issues/199) Paginated `getRequests` doesn't work anymore
+
+**New features**
+
+* [#179](https://github.com/eblondel/zen4R/issues/179) Support method to get a record citation
+* [#185](https://github.com/eblondel/zen4R/issues/185) Add citation format for bibtex
+* [#195](https://github.com/eblondel/zen4R/issues/185) Support additional export formats
+
+**Enhancements**
+
+* [#180](https://github.com/eblondel/zen4R/issues/180) Put `atom4R` as `Suggests` instead of `Imports` (only one R function)
+* [#200](https://github.com/eblondel/zen4R/issues/200) Improve method to check if user is authenticated
+
 ## [zen4R 0.10.2](https://github.com/eblondel/zen4R) |
 [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/package=zen4R)
 
@@ -7,8 +30,8 @@
 
 * [#171](https://github.com/eblondel/zen4R/issues/171) Improve download timeout management/log
 
-## [zen4R 0.10.1](https://github.com/eblondel/zen4R) |
-[![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/package=zen4R)
+## [zen4R 0.10.1](https://cran.r-project.org/src/contrib/Archive/zen4R/zen4R_0.10.1.tar.gz) |
+[![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://cran.r-project.org/src/contrib/Archive/zen4R/zen4R_0.10.1.tar.gz)
 
 **Bug fixes**
 
