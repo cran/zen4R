@@ -1168,7 +1168,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
                               quiet = FALSE){
       page <- 1
       baseUrl <- "user/records"
-      if(q == "") exact = FALSE
+      if(q == "" | (regexpr("doi", q)<0 & regexpr("recid", q)<0) ) exact = FALSE
       
       #set in #72, now re-deactivated through #76 (due to Zenodo server-side changes)
       #if(!private$sandbox) baseUrl <- paste0(baseUrl, "/")
@@ -1953,7 +1953,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
     #' @param quiet object of class \code{logical} indicating if logs have to skipped. Default is \code{FALSE}
     #' @return a list of \code{ZenodoRecord}
     getRecords = function(q = "", size = 10, all_versions = FALSE, exact = TRUE){
-      if(q == "") exact = FALSE
+      if(q == "" | (regexpr("doi", q)<0 & regexpr("recid", q)<0) ) exact = FALSE
       page <- 1
       req <- sprintf("records?q=%s&size=1&page=%s", URLencode(q), page)
       if(all_versions) req <- paste0(req, "&allversions=1")
@@ -1966,6 +1966,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
       if(zenReq$getStatus() == 200){
         resp <- zenReq$getResponse()
         total <- resp$hits$total
+        self$INFO(sprintf("Number of records: %s", total))
         hasRecords <- total > 0
         if(total > 10000){
           warnMsg = sprintf("Total of %s records found: the Zenodo API limits to a maximum of 10,000 records!", total)
@@ -1977,21 +1978,21 @@ ZenodoManager <-  R6Class("ZenodoManager",
       total_remaining <- total
       out <- NULL
       while(hasRecords){
-        
         nextreq <- sprintf("records?q=%s&size=%s&page=%s", URLencode(q), size, page)
         if(all_versions) nextreq <- paste0(nextreq, "&allversions=1")
-        zenReq <- ZenodoRequest$new(private$url, "GET_WITH_CURL", nextreq, 
+        zenReq <- ZenodoRequest$new(private$url, "GET", nextreq, 
                                     token = self$getToken(),
                                     logger = self$loggerType)
         zenReq$execute()
         if(zenReq$getStatus() == 200){
           resp <- zenReq$getResponse()
-          out <- c(out, lapply(resp, ZenodoRecord$new))
+          records <- resp$hits$hits
+          out <- c(out, lapply(records, ZenodoRecord$new))
           infoMsg = sprintf("Successfully fetched list of published records - page %s (size = %s)", page, size)
           cli::cli_alert_info(infoMsg)
           self$INFO(infoMsg)
           
-          total_remaining <- total_remaining-length(resp)
+          total_remaining <- total_remaining-length(records)
           if(total_remaining <= size) size = total_remaining;
           hasRecords <- total_remaining > 0
           if(total_remaining == 0) hasRecords <- FALSE
@@ -1999,6 +2000,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
           page <- page+1
         }else{
           out <- zenReq$getResponse()
+          print(out)
           errMsg = sprintf("Error while fetching published records at page %s: %s", page, out$message)
           cli::cli_alert_danger(errMsg)
           self$ERROR(errMsg)
@@ -2183,7 +2185,7 @@ ZenodoManager <-  R6Class("ZenodoManager",
       while(hasRecords){
 
         nextreq <- sprintf("requests/?q=%s&size=%s&page=%s&sort=%s", URLencode(q), size, page, sort)
-        zenReq <- ZenodoRequest$new(private$url, "GET_WITH_CURL", nextreq, accept = "application/json",
+        zenReq <- ZenodoRequest$new(private$url, "GET", nextreq, accept = "application/json",
                                     token = self$getToken(),
                                     logger = self$loggerType)
         zenReq$execute()
