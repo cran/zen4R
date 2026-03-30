@@ -81,6 +81,12 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
       self$pids = obj$pids
       self$parent = obj$parent
       
+      #custom fields
+      custom_fields = obj$custom_fields
+      if(!is.null(custom_fields)){
+        self$metadata$custom = custom_fields
+      }
+      
       #zen4R specific fields
       if(!is.null(obj$stats)) self$stats = data.frame(obj$stats)
     }
@@ -1804,7 +1810,7 @@ ZenodoRecord <-  R6Class("ZenodoRecord",
     getVersions = function(){
       zenodo <- ZenodoManager$new(url = paste0(unlist(strsplit(self$links$self, "/api"))[1], "/api"))
       records <- zenodo$getRecords(q = sprintf("conceptrecid:%s", self$getConceptId()), all_versions = T, size = 25, exact = FALSE)
-      
+      if(is(records, "ZenodoException")) return(records)
       versions <- data.frame(
         created = character(0),
         updated = character(0),
